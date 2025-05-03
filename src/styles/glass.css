@@ -1,0 +1,120 @@
+/* src/styles/glass.css */
+
+/* Base glass morphism class */
+.glass {
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.1);
+  }
+  
+  /* Darker glass variant */
+  .glass-dark {
+    background: rgba(30, 30, 30, 0.7);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    box-shadow: 0 4px 30px rgba(0, 0, 0, 0.2);
+  }
+  
+  /* Colored glass variants */
+  .glass-purple {
+    background: rgba(147, 51, 234, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(147, 51, 234, 0.2);
+  }
+  
+  .glass-pink {
+    background: rgba(236, 72, 153, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(236, 72, 153, 0.2);
+  }
+  
+  .glass-indigo {
+    background: rgba(79, 70, 229, 0.15);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(79, 70, 229, 0.2);
+  }
+  
+  /* Glass with stronger blur */
+  .glass-strong {
+    background: rgba(255, 255, 255, 0.6);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+  }
+  
+  /* Glass with subtle blur */
+  .glass-subtle {
+    background: rgba(255, 255, 255, 0.8);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.3);
+  }
+  
+  /* Firefox specific fix - Firefox doesn't support backdrop-filter */
+  @-moz-document url-prefix() {
+    .glass, .glass-dark, .glass-purple, .glass-pink, .glass-indigo, .glass-strong, .glass-subtle {
+      background: rgba(255, 255, 255, 0.9);
+      backdrop-filter: none;
+    }
+    
+    .glass-dark {
+      background: rgba(30, 30, 30, 0.9);
+    }
+    
+    .glass-purple {
+      background: rgba(147, 51, 234, 0.3);
+    }
+    
+    .glass-pink {
+      background: rgba(236, 72, 153, 0.3);
+    }
+    
+    .glass-indigo {
+      background: rgba(79, 70, 229, 0.3);
+    }
+  }
+  
+  /* Additional utility classes for animations */
+  .animate-gradient-xy {
+    background-size: 200% 200%;
+    animation: gradient-xy 3s ease infinite;
+  }
+  
+  @keyframes gradient-xy {
+    0%, 100% {
+      background-position: left bottom;
+    }
+    50% {
+      background-position: right top;
+    }
+  }
+  
+  .animate-float {
+    animation: float 4s ease-in-out infinite;
+  }
+  
+  @keyframes float {
+    0%, 100% {
+      transform: translateY(0);
+    }
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+  
+  /* Glass card hover effect */
+  .glass-hover {
+    transition: all 0.3s ease;
+  }
+  
+  .glass-hover:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.1);
+    background: rgba(255, 255, 255, 0.8);
+  }

@@ -1,0 +1,214 @@
+/* src/styles/footer.css */
+/* Advanced gradient animations for the footer */
+
+.footer-gradient-bg {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .footer-gradient-bg::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: radial-gradient(circle at 30% 50%, rgba(255, 125, 102, 0.05) 0%, transparent 50%),
+               radial-gradient(circle at 70% 30%, rgba(103, 58, 183, 0.05) 0%, transparent 50%),
+               radial-gradient(circle at 50% 70%, rgba(236, 201, 75, 0.05) 0%, transparent 50%);
+    z-index: -1;
+    opacity: 0.8;
+    filter: blur(40px);
+    transform: scale(1.2);
+    animation: gradient-shift 20s infinite alternate ease-in-out;
+  }
+  
+  @keyframes gradient-shift {
+    0% {
+      background-position: 0% 0%;
+    }
+    50% {
+      background-position: 100% 0%;
+    }
+    100% {
+      background-position: 0% 100%;
+    }
+  }
+  
+  /* Floating effect for newsletter form */
+  .floating-input {
+    animation: float 6s ease-in-out infinite;
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+  }
+  
+  @keyframes float {
+    0% {
+      transform: translateY(0px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+    50% {
+      transform: translateY(-5px);
+      box-shadow: 0 15px 20px rgba(0, 0, 0, 0.05);
+    }
+    100% {
+      transform: translateY(0px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+    }
+  }
+  
+  /* Animated gradient text */
+  .gradient-text {
+    background: linear-gradient(90deg, #FF7D66, #673AB7, #ECC94B);
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    animation: shine 8s linear infinite;
+  }
+  
+  @keyframes shine {
+    to {
+      background-position: 200% center;
+    }
+  }
+  
+  /* Growing line effect */
+  .growing-line {
+    position: relative;
+    display: inline-block;
+  }
+  
+  .growing-line::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 2px;
+    bottom: -4px;
+    left: 0;
+    background: linear-gradient(90deg, #FF7D66, #673AB7);
+    transition: width 0.3s ease;
+  }
+  
+  .growing-line:hover::after {
+    width: 100%;
+  }
+  
+  /* Subtle pulsing animation for social icons */
+  .pulse-on-hover {
+    transition: all 0.3s ease;
+  }
+  
+  .pulse-on-hover:hover {
+    animation: pulse 1.5s infinite;
+  }
+  
+  @keyframes pulse {
+    0% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(103, 58, 183, 0.7);
+    }
+    
+    70% {
+      transform: scale(1.05);
+      box-shadow: 0 0 0 10px rgba(103, 58, 183, 0);
+    }
+    
+    100% {
+      transform: scale(1);
+      box-shadow: 0 0 0 0 rgba(103, 58, 183, 0);
+    }
+  }
+  
+  /* Animated decorative elements */
+  .deco-dots {
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, #FF7D66, #673AB7);
+    opacity: 0.5;
+    filter: blur(1px);
+    animation: float-random 10s infinite ease-in-out;
+  }
+  
+  @keyframes float-random {
+    0%, 100% {
+      transform: translate(0, 0) rotate(0deg);
+    }
+    20% {
+      transform: translate(15px, -15px) rotate(90deg);
+    }
+    40% {
+      transform: translate(15px, 15px) rotate(180deg);
+    }
+    60% {
+      transform: translate(-15px, 15px) rotate(270deg);
+    }
+    80% {
+      transform: translate(-15px, -15px) rotate(360deg);
+    }
+  }
+  
+  /* Responsive adjustments */
+  @media (max-width: 768px) {
+    .footer-gradient-bg::before {
+      filter: blur(20px);
+    }
+    
+    @keyframes float {
+      0%, 100% {
+        transform: translateY(0px);
+      }
+      50% {
+        transform: translateY(-3px);
+      }
+    }
+  }
+  
+  /* Dark mode enhanced styles */
+  @media (prefers-color-scheme: dark) {
+    .footer-gradient-bg::before {
+      opacity: 0.6;
+    }
+    
+    .floating-input {
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+    
+    @keyframes float {
+      0% {
+        box-shadow: 0 5px 15px rgba(103, 58, 183, 0.2);
+      }
+      50% {
+        box-shadow: 0 15px 20px rgba(103, 58, 183, 0.3);
+      }
+      100% {
+        box-shadow: 0 5px 15px rgba(103, 58, 183, 0.2);
+      }
+    }
+    @media (max-width: 640px) {
+        .footer-grid {
+          grid-template-columns: 1fr;
+          gap: 2rem;
+        }
+        
+        .footer-social {
+          justify-content: center;
+        }
+        
+        .footer-bottom {
+          flex-direction: column;
+          text-align: center;
+        }
+        
+        .footer-links {
+          flex-wrap: wrap;
+          justify-content: center;
+          margin-top: 1rem;
+        }
+        
+        .footer-links a {
+          margin: 0.5rem;
+        }
+      }
+      
+  }
