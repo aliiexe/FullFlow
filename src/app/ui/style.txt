@@ -156,18 +156,6 @@
   color: #fff;
 }
 
-
-.content-visible {
-  opacity: 1;
-  transition: opacity 0.4s ease-in-out;
-}
-
-.content-hidden {
-  opacity: 0;
-  transition: opacity 0.4s ease-in-out;
-  pointer-events: none;
-}
-
 /* --- MOBILE NAVBAR STYLES --- */
 @media (max-width: 767px) {
   .navbar-fixed {
