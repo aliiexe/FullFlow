@@ -39,7 +39,7 @@ const HeroSection = () => {
       </div>
       
       <div className="container max-w-7xl mx-auto px-6 relative z-10">
-        <div className="grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-center">
+        <div className="grid grid-cols-1 lg:items-center gap-10 md:grid-cols-12 md:gap-6 lg:gap-8 items-center">
           <motion.div 
             className="md:col-span-7 lg:col-span-6"
             initial={{ opacity: 0, y: 20 }}
@@ -64,10 +64,10 @@ const HeroSection = () => {
             >
               <h1 className="text-4xl sm:text-5xl md:text-5xl font-bold leading-tight bg-clip-text text-transparent bg-gradient-to-r from-white to-gray-300 mb-4">
                 AI powered 
-                <span className="inline-block pl-4 pr-2">
+                <span className="-ml-5 lg:-ml-0 inline-block pl-4 pr-2">
                   <MorphingText 
                     texts={rotatingWords}
-                    className="bg-clip-text text-white"
+                    className="bg-clip-text text-white "
                   />
                 </span><br />on tap
               </h1>
