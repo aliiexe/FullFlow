@@ -1,0 +1,253 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap');
+
+/* --- NAVBAR --- */
+.navbar-fixed {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  display: flex;
+  justify-content: center;
+  pointer-events: none;
+  /* Transition for stage 2 - moving from center to flex-end and back */
+  transition: transform 1s cubic-bezier(0.1, 0, 0.2, 1);
+  /* Ensure this transition doesn't happen immediately */
+  transition-delay: 0s;
+}
+
+/* Stage 2: Move to right side */
+.navbar-fixed.navbar-stage2 {
+  transform: translateX(45%);
+  transition: transform 0.75s cubic-bezier(0.1, 0, 0.2, 1);
+}
+
+/* Navbar content transitions */
+.navbar-content {
+  background: #fff;
+  border-radius: 2rem;
+  box-shadow: 0 6px 24px 0 rgba(0,0,0,0.08);
+  margin-top: 1.5rem;
+  width: 100vw;
+  max-width: 1200px;
+  min-height: 80px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 2.5rem;
+  pointer-events: auto;
+  font-family: 'Poppins', sans-serif;
+  
+  /* Multi-stage animation transitions */
+  transition: 
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+    border-radius 0.1s cubic-bezier(0.1, 0, 0.2, 1);
+}
+
+/* Collapsed state (Stage 1: Rectangle to Square) */
+.navbar-content.navbar-collapsed {
+  width: 80px;
+  height: 80px;
+  min-height: 80px;
+  padding: 0;
+  border-radius: 12px; /* Square with slightly rounded corners */
+  justify-content: center;
+  overflow: hidden;
+}
+
+/* Stage 2: Square to Circle transition */
+.navbar-content.navbar-square {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 50%;
+  padding: 1.5%;
+}
+
+/* Stage 3: Final circle state (needed for proper animation chain) */
+.navbar-content.navbar-circle {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 50%;
+}
+
+.navbar-toggle-btn {
+  width: 100%;
+  height: 100%;
+  font-size: 1.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-logo {
+  font-size: 2rem;
+  font-weight: 800;
+  color: #18181a;
+  letter-spacing: -0.03em;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-menu {
+  display: flex;
+  gap: 2.5rem;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.navbar-menu a {
+  color: #18181a;
+  font-size: 1.13rem;
+  font-weight: 700;
+  text-decoration: none;
+  transition: color 0.18s;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-menu a:hover {
+  color: #6c6c6c;
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 1.2rem;
+}
+
+.navbar-login {
+  color: #18181a;
+  font-size: 1.08rem;
+  font-weight: 500;
+  text-decoration: none;
+  margin-right: 0.2rem;
+  transition: color 0.18s;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-login:hover {
+  color: #6c6c6c;
+}
+
+.navbar-cta {
+  background: #18181a;
+  color: #fff;
+  font-size: 1.13rem;
+  font-weight: 700;
+  border-radius: 2rem;
+  padding: 0.7rem 2rem;
+  text-decoration: none;
+  transition: background 0.18s, color 0.18s;
+  box-shadow: 0 2px 8px 0 rgba(0,0,0,0.06);
+  display: inline-block;
+  font-family: 'Poppins', sans-serif;
+}
+
+.navbar-cta:hover {
+  background: #333;
+  color: #fff;
+}
+
+/* --- MOBILE NAVBAR STYLES --- */
+@media (max-width: 767px) {
+  .navbar-fixed {
+    justify-content: center;
+    transform: none !important; /* Override stage2 transform */
+  }
+  
+  .navbar-content {
+    width: 100vw;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 1.5rem;
+    max-height: 80px; /* Height when closed */
+    transition: 
+      max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .mobile-navbar-open .navbar-content {
+    max-height: 400px; /* Give enough space for the expanded menu */
+    padding-bottom: 1.5rem;
+  }
+  
+  .mobile-navbar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: 80px;
+    width: 100%;
+  }
+  
+  .mobile-navbar .navbar-logo {
+    font-size: 1.7rem;
+  }
+  
+  .mobile-navbar .navbar-toggle-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+  }
+  
+  .mobile-navbar-content {
+    width: 100%;
+    overflow: hidden;
+    transition: opacity 0.3s;
+  }
+  
+  .mobile-navbar-menu {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0 1.5rem;
+  }
+  
+  .mobile-navbar-menu li {
+    margin: 0.8rem 0;
+    text-align: center;
+  }
+  
+  .mobile-navbar-menu a {
+    color: #18181a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.18s;
+    font-family: 'Poppins', sans-serif;
+    display: block;
+    padding: 0.5rem 0;
+  }
+  
+  .mobile-navbar-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.2rem;
+    padding: 0 1.5rem;
+  }
+  
+  .mobile-navbar-actions .navbar-login {
+    margin-right: 0;
+    font-size: 1rem;
+  }
+  
+  .mobile-navbar-actions .navbar-cta {
+    font-size: 1rem;
+    padding: 0.6rem 1.8rem;
+    width: 100%;
+    text-align: center;
+  }
+}

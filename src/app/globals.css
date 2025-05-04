@@ -234,7 +234,7 @@ body {
   justify-content: center;
   pointer-events: none;
   /* Transition for stage 2 - moving from center to flex-end and back */
-  transition: transform 1.5s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: transform 1s cubic-bezier(0.1, 0, 0.2, 1);
   /* Ensure this transition doesn't happen immediately */
   transition-delay: 0s;
 }
@@ -242,6 +242,7 @@ body {
 /* Stage 2: Move to right side */
 .navbar-fixed.navbar-stage2 {
   transform: translateX(45%);
+  transition: transform 0.75s cubic-bezier(0.1, 0, 0.2, 1);
 }
 
 /* Navbar content transitions */
@@ -260,24 +261,41 @@ body {
   pointer-events: auto;
   font-family: 'Poppins', sans-serif;
   
-  /* Stage 1: Collapsing and expanding animation */
+  /* Multi-stage animation transitions */
   transition: 
-    width 1s cubic-bezier(0.4, 0, 0.2, 1),
-    height 1s cubic-bezier(0.4, 0, 0.2, 1),
-    min-height 1s cubic-bezier(0.4, 0, 0.2, 1),
-    padding 1s cubic-bezier(0.4, 0, 0.2, 1), 
-    border-radius 1s cubic-bezier(0.4, 0, 0.2, 1);
+    width 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    min-height 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+    padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+    border-radius 0.1s cubic-bezier(0.1, 0, 0.2, 1);
 }
 
-/* Collapsed state (Stage 1) */
+/* Collapsed state (Stage 1: Rectangle to Square) */
 .navbar-content.navbar-collapsed {
-  width: 50px;
-  height: 50px;
-  min-height: 50px;
+  width: 80px;
+  height: 80px;
+  min-height: 80px;
   padding: 0;
-  border-radius: 50%;
+  border-radius: 12px; /* Square with slightly rounded corners */
   justify-content: center;
   overflow: hidden;
+}
+
+/* Stage 2: Square to Circle transition */
+.navbar-content.navbar-square {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 50%;
+  padding: 1.5%;
+}
+
+/* Stage 3: Final circle state (needed for proper animation chain) */
+.navbar-content.navbar-circle {
+  width: 30px;
+  height: 30px;
+  min-height: 30px;
+  border-radius: 50%;
 }
 
 .navbar-toggle-btn {
@@ -359,4 +377,100 @@ body {
 .navbar-cta:hover {
   background: #333;
   color: #fff;
+}
+
+/* --- MOBILE NAVBAR STYLES --- */
+@media (max-width: 767px) {
+  .navbar-fixed {
+    justify-content: center;
+    transform: none !important; /* Override stage2 transform */
+  }
+  
+  .navbar-content {
+    width: 100vw;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: hidden;
+    padding: 0;
+    border-radius: 1.5rem;
+    max-height: 80px; /* Height when closed */
+    transition: 
+      max-height 0.3s cubic-bezier(0.4, 0, 0.2, 1),
+      padding 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .mobile-navbar-open .navbar-content {
+    max-height: 400px; /* Give enough space for the expanded menu */
+    padding-bottom: 1.5rem;
+  }
+  
+  .mobile-navbar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 1.5rem;
+    height: 80px;
+    width: 100%;
+  }
+  
+  .mobile-navbar .navbar-logo {
+    font-size: 1.7rem;
+  }
+  
+  .mobile-navbar .navbar-toggle-btn {
+    width: 40px;
+    height: 40px;
+    font-size: 1.4rem;
+  }
+  
+  .mobile-navbar-content {
+    width: 100%;
+    overflow: hidden;
+    transition: opacity 0.3s;
+  }
+  
+  .mobile-navbar-menu {
+    display: flex;
+    flex-direction: column;
+    list-style: none;
+    margin: 0;
+    padding: 0 1.5rem;
+  }
+  
+  .mobile-navbar-menu li {
+    margin: 0.8rem 0;
+    text-align: center;
+  }
+  
+  .mobile-navbar-menu a {
+    color: #18181a;
+    font-size: 1.1rem;
+    font-weight: 700;
+    text-decoration: none;
+    transition: color 0.18s;
+    font-family: 'Poppins', sans-serif;
+    display: block;
+    padding: 0.5rem 0;
+  }
+  
+  .mobile-navbar-actions {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 1.2rem;
+    padding: 0 1.5rem;
+  }
+  
+  .mobile-navbar-actions .navbar-login {
+    margin-right: 0;
+    font-size: 1rem;
+  }
+  
+  .mobile-navbar-actions .navbar-cta {
+    font-size: 1rem;
+    padding: 0.6rem 1.8rem;
+    width: 100%;
+    text-align: center;
+  }
 }
