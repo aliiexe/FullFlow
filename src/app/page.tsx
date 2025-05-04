@@ -7,6 +7,7 @@ import PricingBuilder from "./sections/PricingBuilder";
 import ProcessSection from "./sections/ProcessSection";
 import AboubakrNavBar from "./ui/AboubakrNav";
 import SlidingFooter from "./ui/FooterWithReveal";
+import FaqSection from "./sections/FaqSection";
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 relative">
@@ -17,6 +18,7 @@ export default function Home() {
       <ServicesSection />
       <PricingBuilder />
       <ProcessSection />
+      <FaqSection/>
       <SlidingFooter/>
     </main>
   );
