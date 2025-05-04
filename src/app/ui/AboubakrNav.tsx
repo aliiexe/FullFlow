@@ -1,7 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import AnimatedText from '../animations/TextHover';
 
 export default function AboubakrNavBar() {
   // Keep existing state and refs
@@ -81,12 +80,12 @@ export default function AboubakrNavBar() {
       } else if (currentScrollY < prevScrollY.current) {
         // Scrolling UP - expand nav
         if (navState === 'minimized') {
-          setNavState('collapsed');
+          setNavState('expanded');
           
           // Increased delay before expanding to allow full transition viewing
           scrollTimer.current = setTimeout(() => {
             if (window.scrollY < prevScrollY.current) {
-              setNavState('expanded');
+              setNavState('collapsed');
             }
           }, 1200); // Increased from 800ms to 1200ms
         } else if (navState === 'collapsed' && !isOpen) {
@@ -159,19 +158,16 @@ export default function AboubakrNavBar() {
   };
 
   const toggleNav = () => {
+    // FIX: Modified this function to properly handle mobile menu state
     if (navState === 'minimized') {
-      // First transition to square
-      setNavState('collapsed');
-      
-      // After a delay, transition to fully expanded
+      // First expand the nav before opening menu
+      setNavState('expanded');
+      // Small delay before opening menu
       setTimeout(() => {
         setIsOpen(true);
-        // After another small delay, set to expanded for a smoother sequence
-        setTimeout(() => {
-          setNavState('expanded');
-        }, 150);
-      }, 400); // Longer delay to see the square transition
+      }, 300);
     } else {
+      // Simply toggle menu
       setIsOpen(!isOpen);
     }
   };
@@ -195,7 +191,7 @@ export default function AboubakrNavBar() {
       width: '50px',
       height: '50px',
       borderRadius: '50%',
-      x: '45vw', // Move to the side
+      x: '45vw',
     }
   };
 
@@ -225,7 +221,7 @@ export default function AboubakrNavBar() {
   };
 
   const itemVariants = {
-    expanded: {
+    open: { // FIX: Changed from "expanded" to "open" to match menuVariants
       opacity: 1,
       y: 0,
       transition: {
@@ -234,7 +230,7 @@ export default function AboubakrNavBar() {
         damping: 24
       }
     },
-    collapsed: {
+    closed: { // FIX: Changed from "collapsed" to "closed" to match menuVariants
       opacity: 0,
       y: 10,
       transition: {
@@ -244,8 +240,8 @@ export default function AboubakrNavBar() {
   };
 
   // Calculate visual state based on both navState and isOpen
-  const visualState = isOpen && navState !== 'minimized' 
-    ? 'expanded' 
+  const visualState = isOpen && isMobile 
+    ? 'expanded'  // FIX: Always use expanded state when mobile menu is open
     : navState;
 
   return (
@@ -319,7 +315,7 @@ export default function AboubakrNavBar() {
                       }}
                       whileTap={{ scale: 0.97 }}
                     >
-                      <AnimatedText text={item.name} />
+                      <span className="relative z-10">{item.name}</span>
                       
                       {/* Background only for active state */}
                       <motion.div 
@@ -360,7 +356,7 @@ export default function AboubakrNavBar() {
                   </motion.button>
                 ) : (
                   <motion.button
-                    onClick={() => setIsOpen(!isOpen)}
+                    onClick={toggleNav}
                     className="bg-transparent border-none cursor-pointer z-10 p-0 flex flex-col items-center justify-center h-6 w-6"
                     whileHover={{ scale: 1.1 }}
                     whileTap={{ scale: 0.9 }}
@@ -420,18 +416,18 @@ export default function AboubakrNavBar() {
           )}
         </AnimatePresence>
         
-        {/* Mobile Menu */}
+        {/* Mobile Menu - FIX: Modified to ensure mobile menu shows properly */}
         <AnimatePresence>
           {isMobile && isOpen && (
             <motion.div
               variants={menuVariants}
               initial="closed"
-              animate={isOpen ? "open" : "closed"}
+              animate="open" 
               exit="closed"
               className="w-full overflow-hidden"
             >
               <motion.div
-                className={`flex flex-col w-full pt-6 pb-2 border-t border-white/10 mt-2`}
+                className="flex flex-col w-full pt-6 pb-2 border-t border-white/10 mt-2"
               >
                 {navItems.map((item) => (
                   <motion.button
@@ -442,7 +438,7 @@ export default function AboubakrNavBar() {
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                   >
-                    <AnimatedText text={item.name} />
+                    <span className="relative z-10">{item.name}</span>
                     
                     {/* Background only for active state */}
                     <motion.div 
@@ -458,7 +454,7 @@ export default function AboubakrNavBar() {
                         scale: 1.01
                       }}
                       transition={{ 
-                        duration: 0.5, // Increased from 0.4
+                        duration: 0.5,
                         ease: [0.25, 1, 0.5, 1] 
                       }}
                     />
@@ -490,7 +486,7 @@ export default function AboubakrNavBar() {
                       background: 'rgba(255, 255, 255, 0.1)' 
                     }}
                     transition={{ 
-                      duration: 0.5, // Increased from 0.4
+                      duration: 0.5,
                       ease: [0.25, 1, 0.5, 1]
                     }}
                   />
