@@ -1,5 +1,7 @@
 'use client'
 import { useState, useEffect, useRef } from 'react';
+import '../styles/navbar.css'; // Import your CSS file
+
 
 export default function NavBar() {
   const [collapsed, setCollapsed] = useState(false);
