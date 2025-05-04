@@ -1,0 +1,45 @@
+.svg-container {
+    position: absolute;
+    top: -100;
+    left: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    z-index: -1;
+}
+
+svg {
+    height: 100%;
+    stroke: linear-gradient(to bottom, #FFCC00, #FF7600, #EA8221, #F352F0, #FF0080);
+}
+
+@media (min-width: 1024px) {
+    .large-line {
+        transform:  scale(1);
+    }
+}
+
+@media (min-width: 769px) and (max-width: 1023px) {
+    .large-line {
+        transform:  scale(0.9);
+    }
+}
+
+@media (max-width: 768px) {
+    .small-line {
+        width: 100%;
+    }
+}
+
+@media (max-width: 480px) {
+    .small-line {
+        transform:  scale(1);
+    }
+}
+
+@media (max-width: 375px) {
+    .small-line {
+        transform:  scale(1);
+    }
+}
