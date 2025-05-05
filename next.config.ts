@@ -2,7 +2,6 @@ import type { Configuration } from 'webpack';
 import type { NextConfig } from 'next';
 
 const config: NextConfig = {
-  output:'export',
   reactStrictMode: true,
   webpack: (config: Configuration) => {
     if (config.module && config.module.rules) {

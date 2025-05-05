@@ -33,6 +33,8 @@ interface Deliverable {
   };
 }
 
+
+
 if (!process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY) {
   throw new Error("Missing NEXT_PUBLIC_STRIPE_SECRET_KEY environment variable");
 }
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { selectedServices } = body;
+    const { selectedServices, customerEmail } = body;
     
     if (!selectedServices || !Array.isArray(selectedServices) || selectedServices.length === 0) {
       return NextResponse.json(
@@ -81,17 +83,19 @@ export async function POST(request: NextRequest) {
       };
     });
     
-    // Create Stripe checkout session
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ["card"],
       line_items: lineItems,
-      mode: 'payment',
-      success_url: `${request.nextUrl.origin}/success`,
+      mode: "payment",
+      customer_email: customerEmail,
+      success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
       cancel_url: `${request.nextUrl.origin}/cancel`,
       metadata: {
-        selectedServices: JSON.stringify(selectedServices),
+        selectedServices: JSON.stringify(selectedServices).slice(0, 499),
       },
     });
+
+    console.log('Customer Email:', customerEmail);
     
     return NextResponse.json({ id: session.id, url: session.url });
   } catch (error) {
