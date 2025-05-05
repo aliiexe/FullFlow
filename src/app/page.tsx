@@ -7,14 +7,16 @@ import ProcessSection from "./sections/ProcessSection";
 import AboubakrNavBar from "./ui/AboubakrNav";
 import SlidingFooter from "./ui/FooterWithReveal";
 import FaqSection from "./sections/FaqSection";
-import NavBar from "./ui/AboubakrNavBar";
+// import NavBar from "./ui/AboubakrNavBar";
+import NavBar from "./ui/NavBar";
 
 export default function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center p-8 relative">
       <AnimatedLine />
-      {/* <NavBar /> */}
       <NavBar/>
+      {/* <NavBar /> */}
+      {/* <AboubakrNavBar/> */}
       <HeroSection />
       <ServicesSection />
       <PricingBuilder />

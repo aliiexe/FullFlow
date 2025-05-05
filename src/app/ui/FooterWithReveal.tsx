@@ -3,7 +3,7 @@ import { FC, useState, useRef, useEffect } from 'react';
 import { motion } from 'framer-motion';
 
 const SECTION1_HEIGHT = 550;
-const SECTION2_HEIGHT = 500; // Adjusted contact section height
+const SECTION2_HEIGHT = 500;
 const SCROLL_BOTTOM_THRESHOLD = 5;
 const OPEN_DELAY = 100;
 
@@ -81,7 +81,7 @@ const SlidingFooter: FC = () => {
   return (
     <div className="footer-wrapper">
       <div ref={containerRef} className="footer-container">
-        {/* Main Footer - Simplified Design */}
+        {/* Main Footer - Redesigned to match the website flow */}
         <div className="section section1">
           <div className="footer-content">
             <div className="footer-company">
@@ -94,7 +94,7 @@ const SlidingFooter: FC = () => {
                 <span className="footer-company-name">Full Flow</span>
               </div>
               <p className="footer-company-desc">
-                Streamline your workflow with AI-powered automation.
+                AI-powered automation for modern workflows. Streamline your business processes with intelligent solutions.
               </p>
               <div className="footer-social">
                 <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">
@@ -119,52 +119,24 @@ const SlidingFooter: FC = () => {
             
             <div className="footer-links-columns">
               <div className="footer-links-group">
-                <h4>Product</h4>
+                <h4>Platform</h4>
                 <ul className="footer-links">
-                  <li><a href="#features">Features</a></li>
+                  <li><a href="#services">Services</a></li>
                   <li><a href="#pricing">Pricing</a></li>
-                  <li><a href="#integrations">Integrations</a></li>
-                </ul>
-              </div>
-              
-              <div className="footer-links-group">
-                <h4>Resources</h4>
-                <ul className="footer-links">
-                  <li><a href="#blog">Blog</a></li>
-                  <li><a href="#documentation">Documentation</a></li>
-                  <li><a href="#guides">Guides</a></li>
+                  <li><a href="#process">Process</a></li>
                 </ul>
               </div>
               
               <div className="footer-links-group">
                 <h4>Company</h4>
                 <ul className="footer-links">
-                  <li><a href="#about">About</a></li>
-                  <li><a href="#careers">Careers</a></li>
+                  <li><a href="#hero">About</a></li>
+                  <li><a href="#faq">FAQ</a></li>
                   <li><a href="#contact">Contact</a></li>
                 </ul>
               </div>
             </div>
             
-            <div className="footer-newsletter">
-              <div className="newsletter-form">
-                <input type="email" placeholder="Enter your email" />
-                <motion.button 
-                  whileHover={{ scale: 1.03 }}
-                  whileTap={{ scale: 0.97 }}
-                  className="newsletter-btn"
-                >
-                  Subscribe
-                </motion.button>
-              </div>
-              <motion.button className="contact-btn" onClick={toggleOpen}
-                whileHover={{ scale: 1.03 }}
-                whileTap={{ scale: 0.97 }}
-                transition={{ duration: 0.2 }}
-              >
-                Contact Us
-              </motion.button>
-            </div>
           </div>
           
           <div className="footer-bottom">
@@ -172,19 +144,18 @@ const SlidingFooter: FC = () => {
             <div className="legal-links">
               <a href="#terms">Terms</a>
               <a href="#privacy">Privacy</a>
-              <a href="#cookies">Cookies</a>
             </div>
           </div>
         </div>
         
-        {/* Contact Form Section - Simplified */}
+        {/* Contact Form Section - Better styled */}
         <div className={`section section2 ${open ? 'visible' : ''}`}>
           <div className="contact-header">
             <h3>Get in Touch</h3>
             <motion.button 
               className="close-btn" 
               onClick={toggleOpen}
-              whileHover={{ scale: 1.05 }}
+              whileHover={{ scale: 1.05, backgroundColor: 'rgba(255, 255, 255, 0.08)' }}
               whileTap={{ scale: 0.95 }}
             >
               <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -216,7 +187,7 @@ const SlidingFooter: FC = () => {
             <motion.button 
               type="submit" 
               className="submit-btn"
-              whileHover={{ scale: 1.03 }}
+              whileHover={{ scale: 1.03, boxShadow: '0 4px 20px rgba(255, 0, 128, 0.25)' }}
               whileTap={{ scale: 0.97 }}
             >
               Send Message
@@ -228,24 +199,27 @@ const SlidingFooter: FC = () => {
       <style jsx>{`
         .footer-wrapper {
           width: 100%;
+          font-family: var(--font-geist-sans), system-ui, sans-serif;
         }
         
         .footer-container {
           width: 100%;
           overflow: hidden;
-          background: rgba(13, 13, 20, 0.85);
+          background: rgba(15, 15, 22, 0.95);
           backdrop-filter: blur(16px);
           -webkit-backdrop-filter: blur(16px);
-          box-shadow: 0 -4px 24px rgba(0, 0, 0, 0.2);
+          box-shadow: 0 -8px 32px rgba(0, 0, 0, 0.15);
           transition: max-height 0.5s cubic-bezier(0.25, 1, 0.5, 1);
           max-height: 0;
-          z-index: 1000;
+          z-index: 100;
           color: #f8f9fa;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         
         .section {
-          padding: 40px 32px;
+          padding: 48px 32px;
+          max-width: 1200px;
+          margin: 0 auto;
         }
         
         .section1 {
@@ -283,10 +257,10 @@ const SlidingFooter: FC = () => {
         }
         
         .footer-company-desc {
-          margin-bottom: 20px;
+          margin-bottom: 24px;
           color: rgba(248, 249, 250, 0.7);
           font-size: 14px;
-          line-height: 1.5;
+          line-height: 1.6;
         }
         
         .footer-social {
@@ -298,10 +272,10 @@ const SlidingFooter: FC = () => {
           display: flex;
           align-items: center;
           justify-content: center;
-          width: 32px;
-          height: 32px;
-          border-radius: 6px;
-          background: rgba(255, 255, 255, 0.05);
+          width: 36px;
+          height: 36px;
+          border-radius: 8px;
+          background: rgba(255, 255, 255, 0.04);
           color: #f8f9fa;
           transition: all 0.2s ease;
         }
@@ -314,16 +288,23 @@ const SlidingFooter: FC = () => {
         /* Links columns */
         .footer-links-columns {
           display: flex;
-          gap: 40px;
-          flex: 2;
-          justify-content: space-around;
-          max-width: 500px;
+          gap: 60px;
+          flex: 1;
+          justify-content: flex-start;
+          max-width: 400px;
         }
         
         .footer-links-group h4 {
-          font-size: 15px;
+          font-size: 16px;
           font-weight: 600;
-          margin-bottom: 16px;
+          margin-bottom: 20px;
+          color: #f8f9fa;
+        }
+        
+        .footer-newsletter h4 {
+          font-size: 16px;
+          font-weight: 600;
+          margin-bottom: 20px;
           color: #f8f9fa;
         }
         
@@ -334,25 +315,42 @@ const SlidingFooter: FC = () => {
         }
         
         .footer-links li {
-          margin-bottom: 10px;
+          margin-bottom: 12px;
         }
         
         .footer-links a {
-          color: rgba(248, 249, 250, 0.6);
+          color: rgba(248, 249, 250, 0.65);
           text-decoration: none;
           font-size: 14px;
-          transition: color 0.2s ease;
+          transition: all 0.2s ease;
+          padding-bottom: 2px;
+          position: relative;
         }
         
         .footer-links a:hover {
           color: #f8f9fa;
         }
         
+        .footer-links a::after {
+          content: '';
+          position: absolute;
+          width: 0;
+          height: 1px;
+          bottom: 0;
+          left: 0;
+          background-color: #f8f9fa;
+          transition: width 0.3s ease;
+        }
+        
+        .footer-links a:hover::after {
+          width: 100%;
+        }
+        
         /* Newsletter */
         .footer-newsletter {
           flex: 1;
           min-width: 240px;
-          max-width: 320px;
+          max-width: 300px;
         }
         
         .newsletter-form {
@@ -362,21 +360,23 @@ const SlidingFooter: FC = () => {
         
         .newsletter-form input {
           flex: 1;
-          padding: 10px 14px;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          padding: 12px 14px;
+          background: rgba(255, 255, 255, 0.03);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           border-radius: 6px 0 0 6px;
           color: #f8f9fa;
           font-size: 14px;
+          transition: all 0.2s ease;
         }
         
         .newsletter-form input:focus {
           outline: none;
           border-color: rgba(255, 255, 255, 0.2);
+          background: rgba(255, 255, 255, 0.04);
         }
         
         .newsletter-btn {
-          padding: 10px 16px;
+          padding: 12px 16px;
           background: linear-gradient(135deg, #7928CA, #FF0080);
           color: #fff;
           border: none;
@@ -387,21 +387,17 @@ const SlidingFooter: FC = () => {
         }
         
         .contact-btn {
-          background: transparent;
-          border: 1px solid rgba(255, 255, 255, 0.1);
+          background: rgba(255, 255, 255, 0.04);
+          border: 1px solid rgba(255, 255, 255, 0.08);
           color: #f8f9fa;
-          padding: 10px;
+          padding: 12px;
           border-radius: 6px;
           font-weight: 500;
           font-size: 14px;
           cursor: pointer;
           transition: all 0.2s ease;
           width: 100%;
-        }
-        
-        .contact-btn:hover {
-          border-color: rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.05);
+          margin-top: 16px;
         }
         
         /* Footer bottom */
@@ -409,8 +405,8 @@ const SlidingFooter: FC = () => {
           display: flex;
           justify-content: space-between;
           align-items: center;
-          padding-top: 24px;
-          margin-top: 24px;
+          padding-top: 32px;
+          margin-top: 40px;
           border-top: 1px solid rgba(255, 255, 255, 0.05);
         }
         
@@ -421,7 +417,7 @@ const SlidingFooter: FC = () => {
         
         .legal-links {
           display: flex;
-          gap: 20px;
+          gap: 24px;
         }
         
         .legal-links a {
@@ -437,13 +433,16 @@ const SlidingFooter: FC = () => {
         
         /* Contact Section Styles */
         .section2 {
-          background: rgba(16, 16, 24, 0.9);
+          background: rgba(12, 12, 20, 0.97);
           min-height: ${SECTION2_HEIGHT}px;
           opacity: 0;
           transform: translateY(20px);
           transition: opacity 0.5s ease-out, transform 0.5s ease-out;
-          max-width: 720px;
+          max-width: 600px;
           margin: 0 auto;
+          border-radius: 16px;
+          box-shadow: 0 8px 32px rgba(0, 0, 0, 0.15);
+          border: 1px solid rgba(255, 255, 255, 0.05);
         }
         
         .section2.visible {
@@ -465,12 +464,12 @@ const SlidingFooter: FC = () => {
         }
         
         .close-btn {
-          background: transparent;
+          background: rgba(255, 255, 255, 0.04);
           color: #f8f9fa;
           border: none;
-          width: 36px;
-          height: 36px;
-          border-radius: 6px;
+          width: 40px;
+          height: 40px;
+          border-radius: 8px;
           display: flex;
           align-items: center;
           justify-content: center;
@@ -478,15 +477,11 @@ const SlidingFooter: FC = () => {
           transition: all 0.2s ease;
         }
         
-        .close-btn:hover {
-          background: rgba(255, 255, 255, 0.1);
-        }
-        
         /* Form styles */
         .contact-form {
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 20px;
         }
         
         .form-row {
@@ -500,19 +495,26 @@ const SlidingFooter: FC = () => {
         
         input, textarea {
           width: 100%;
-          padding: 12px 16px;
+          padding: 14px 16px;
           background: rgba(255, 255, 255, 0.03);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          border-radius: 6px;
+          border: 1px solid rgba(255, 255, 255, 0.08);
+          border-radius: 8px;
           color: #f8f9fa;
           font-size: 14px;
           transition: all 0.2s ease;
+          font-family: var(--font-geist-sans), system-ui, sans-serif;
         }
         
         input:focus, textarea:focus {
           outline: none;
           border-color: rgba(255, 255, 255, 0.2);
-          background: rgba(255, 255, 255, 0.05);
+          background: rgba(255, 255, 255, 0.04);
+          box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.03);
+        }
+        
+        textarea {
+          resize: vertical;
+          min-height: 120px;
         }
         
         .submit-btn {
@@ -520,13 +522,14 @@ const SlidingFooter: FC = () => {
           background: linear-gradient(135deg, #7928CA, #FF0080);
           color: #fff;
           border: none;
-          padding: 12px 28px;
-          border-radius: 6px;
+          padding: 14px 28px;
+          border-radius: 8px;
           font-weight: 500;
           font-size: 14px;
           cursor: pointer;
           margin-top: 8px;
-          transition: all 0.2s ease;
+          transition: all 0.3s ease;
+          font-family: var(--font-geist-sans), system-ui, sans-serif;
         }
         
         @media (max-width: 900px) {
@@ -540,12 +543,13 @@ const SlidingFooter: FC = () => {
           
           .footer-links-columns {
             width: 100%;
+            justify-content: space-between;
           }
         }
         
         @media (max-width: 600px) {
           .section {
-            padding: 32px 20px;
+            padding: 40px 24px;
           }
           
           .footer-links-columns {
@@ -564,6 +568,10 @@ const SlidingFooter: FC = () => {
           
           .submit-btn {
             width: 100%;
+          }
+          
+          .section2 {
+            border-radius: 12px;
           }
         }
       `}</style>

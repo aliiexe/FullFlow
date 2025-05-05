@@ -221,7 +221,7 @@ export default function AboubakrNavBar() {
   };
 
   const itemVariants = {
-    open: { // FIX: Changed from "expanded" to "open" to match menuVariants
+    open: {
       opacity: 1,
       y: 0,
       transition: {
@@ -230,7 +230,7 @@ export default function AboubakrNavBar() {
         damping: 24
       }
     },
-    closed: { // FIX: Changed from "collapsed" to "closed" to match menuVariants
+    closed: {
       opacity: 0,
       y: 10,
       transition: {
@@ -241,7 +241,7 @@ export default function AboubakrNavBar() {
 
   // Calculate visual state based on both navState and isOpen
   const visualState = isOpen && isMobile 
-    ? 'expanded'  // FIX: Always use expanded state when mobile menu is open
+    ? 'expanded'
     : navState;
 
   return (
@@ -259,10 +259,10 @@ export default function AboubakrNavBar() {
         animate={visualState}
         transition={{
           type: "spring",
-          stiffness: 80, // Reduced from 150 for slower movement
-          damping: 22, // Increased from 20 for smoother finish
-          mass: 1.2, // Increased from 1 for more weightiness
-          duration: 0.8 // Added explicit duration for slower animation
+          stiffness: 80,
+          damping: 22,
+          mass: 1.2,
+          duration: 0.8
         }}
         style={{
           background: 'linear-gradient(142deg, rgba(255, 255, 255, 0.15) -61.21%, rgba(255, 255, 255, 0.05) 96.65%)',
@@ -277,16 +277,11 @@ export default function AboubakrNavBar() {
             <div className="flex justify-between items-center w-full">
               {/* Logo Section */}
               <motion.div 
-                className="text-white font-bold text-xl flex items-center"
+                className="text-white font-bold text-xl flex items-center p-2.5"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 transition={{ delay: 0.2, duration: 0.6 }}
               >
-                <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg" className="mr-2">
-                  <path d="M14 2C7.373 2 2 7.373 2 14C2 20.627 7.373 26 14 26C20.627 26 26 20.627 26 14C26 7.373 20.627 2 14 2Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14 19C16.7614 19 19 16.7614 19 14C19 11.2386 16.7614 9 14 9C11.2386 9 9 11.2386 9 14C9 16.7614 11.2386 19 14 19Z" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                  <path d="M14 6V2M22 14H26M14 22V26M6 14H2" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
                 {visualState === 'expanded' && (
                   <motion.span
                     initial={{ opacity: 0, x: -5 }}
@@ -314,30 +309,10 @@ export default function AboubakrNavBar() {
                         ease: [0.25, 1, 0.5, 1]
                       }}
                       whileTap={{ scale: 0.97 }}
+                      whileHover={{ scale: 1.02 }}
                     >
                       <span className="relative z-10">{item.name}</span>
-                      
-                      {/* Background only for active state */}
-                      <motion.div 
-                        className="absolute inset-0 -z-10 rounded-md"
-                        initial={{ backgroundColor: 'rgba(255, 255, 255, 0)', backdropFilter: 'blur(0px)' }}
-                        animate={{ 
-                          backgroundColor: activeSection === item.id 
-                            ? 'rgba(255, 255, 255, 0.1)' 
-                            : 'rgba(255, 255, 255, 0)',
-                          backdropFilter: activeSection === item.id ? 'blur(8px)' : 'blur(0px)',
-                        }}
-                        whileHover={{ 
-                          scale: 1.02,
-                          backgroundColor: activeSection === item.id 
-                            ? 'rgba(255, 255, 255, 0.15)' 
-                            : 'rgba(255, 255, 255, 0)'
-                        }}
-                        transition={{ 
-                          duration: 0.5, // Increased from 0.4
-                          ease: [0.25, 1, 0.5, 1],
-                        }}
-                      />
+                      {/* Removed the conditional background for active state */}
                     </motion.button>
                   ))}
                 </div>
@@ -416,7 +391,7 @@ export default function AboubakrNavBar() {
           )}
         </AnimatePresence>
         
-        {/* Mobile Menu - FIX: Modified to ensure mobile menu shows properly */}
+        {/* Mobile Menu */}
         <AnimatePresence>
           {isMobile && isOpen && (
             <motion.div
@@ -436,28 +411,11 @@ export default function AboubakrNavBar() {
                     onClick={() => scrollToSection(item.id)}
                     className="text-white bg-transparent border-none no-underline py-3 px-4 text-base font-medium text-center relative overflow-hidden cursor-pointer mx-2 rounded-md"
                     whileTap={{ scale: 0.98 }}
+                    whileHover={{ scale: 1.01 }}
                     transition={{ duration: 0.2, ease: [0.4, 0, 0.2, 1] }}
                   >
                     <span className="relative z-10">{item.name}</span>
-                    
-                    {/* Background only for active state */}
-                    <motion.div 
-                      className="absolute inset-0 -z-10 rounded-md"
-                      initial={{ backgroundColor: 'rgba(255, 255, 255, 0)', backdropFilter: 'blur(0px)' }}
-                      animate={{ 
-                        backgroundColor: activeSection === item.id 
-                          ? 'rgba(255, 255, 255, 0.1)' 
-                          : 'rgba(255, 255, 255, 0)',
-                        backdropFilter: activeSection === item.id ? 'blur(8px)' : 'blur(0px)',
-                      }}
-                      whileHover={{ 
-                        scale: 1.01
-                      }}
-                      transition={{ 
-                        duration: 0.5,
-                        ease: [0.25, 1, 0.5, 1] 
-                      }}
-                    />
+                    {/* Removed the conditional background for active state */}
                   </motion.button>
                 ))}
                 <motion.button
