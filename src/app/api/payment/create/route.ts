@@ -100,7 +100,7 @@ async function createSlackChannel(customerData: {
     const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
     
     // Create Slack channel name with PRJ prefix and session ID suffix
-    const channelName = `PRJ-${sessionSuffix}`;
+    const channelName = `PRJ${sessionSuffix}`;
     
     console.log('Creating Slack channel:', channelName);
     
