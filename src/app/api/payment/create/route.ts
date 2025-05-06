@@ -1,7 +1,6 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
 
-// Define interfaces based on your API schema
 interface Category {
   id: string;
   name: string;
@@ -53,13 +52,10 @@ async function createJiraProject(customerData: {
   sessionId: string;
 }) {
   try {
-    // Extract last 4 characters from session ID
     const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
     
-    // Create project key with PRJ prefix and session ID suffix
     const projectKey = `PRJ${sessionSuffix}`;
     
-    // Create company name as "Project" plus the last 4 chars of session ID
     const companyName = `PROJECT ${sessionSuffix}`;
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
@@ -68,8 +64,8 @@ async function createJiraProject(customerData: {
       body: JSON.stringify({
         customerEmail: customerData.customerEmail,
         customerName: customerData.customerName,
-        companyName: companyName, // Add the custom company name
-        projectKey: projectKey,   // Use the custom project key format
+        companyName: companyName, 
+        projectKey: projectKey, 
         isSubscription: customerData.isSubscription,
         subscriptionId: customerData.subscriptionId,
         selectedServices: customerData.selectedServices,
@@ -89,6 +85,47 @@ async function createJiraProject(customerData: {
     }
   } catch (error) {
     console.error('Failed to create Jira project:', error);
+    // Log error but don't throw to prevent blocking the payment flow
+  }
+}
+
+// Add this function after your createJiraProject function
+async function createSlackChannel(customerData: {
+  customerEmail: string;
+  customerName: string;
+  sessionId: string;
+}) {
+  try {
+    // Extract last 4 characters from session ID and convert to uppercase
+    const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
+    
+    // Create Slack channel name with PRJ prefix and session ID suffix
+    const channelName = `PRJ-${sessionSuffix}`;
+    
+    console.log('Creating Slack channel:', channelName);
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: channelName,
+        customerEmail: customerData.customerEmail,
+        customerName: customerData.customerName
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error creating Slack channel:', errorData);
+      // We'll log the error but continue with checkout to not block payment flow
+    } else {
+      const data = await response.json();
+      console.log('Slack channel created successfully:', data);
+      console.log(`Channel name: ${channelName}`);
+      return data;
+    }
+  } catch (error) {
+    console.error('Failed to create Slack channel:', error);
     // Log error but don't throw to prevent blocking the payment flow
   }
 }
@@ -177,6 +214,12 @@ export async function POST(request: NextRequest) {
         subscriptionId,
         sessionId: session.id
       });
+
+      await createSlackChannel({
+        customerEmail,
+        customerName: customerFullName || '',
+        sessionId: session.id
+      });
     } 
     // Handle one-time payment checkout
     else {
@@ -242,6 +285,12 @@ export async function POST(request: NextRequest) {
         customerName: customerFullName || '',
         isSubscription: false,
         selectedServices,
+        sessionId: session.id
+      });
+
+      await createSlackChannel({
+        customerEmail,
+        customerName: customerFullName || '',
         sessionId: session.id
       });
     }
