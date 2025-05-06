@@ -130,6 +130,49 @@ async function createSlackChannel(customerData: {
   }
 }
 
+async function sendInviteEmail(data: {
+  customerEmail: string;
+  customerName: string;
+  channelName: string;
+  projectKey: string;
+}) {
+  try {
+    // Construct URLs based on the keys
+    const jiraUrl = `https://yourcompany.atlassian.net/browse/${data.projectKey}`;
+    const slackUrl = `https://yourworkspace.slack.com/archives/${data.channelName}`;
+    
+    console.log('Sending invitation email with details:');
+    console.log('- To:', data.customerEmail);
+    console.log('- Channel:', data.channelName);
+    console.log('- Project:', data.projectKey);
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sendInviteEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        to: data.customerEmail,
+        customerName: data.customerName,
+        channelName: data.channelName,
+        jiraUrl: jiraUrl,
+        slackUrl: slackUrl
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error sending invitation email:', errorData);
+      // We'll log the error but continue with checkout to not block payment flow
+    } else {
+      const data = await response.json();
+      console.log('Invitation email sent successfully:', data);
+      return data;
+    }
+  } catch (error) {
+    console.error('Failed to send invitation email:', error);
+    // Log error but don't throw to prevent blocking the payment flow
+  }
+}
+
 if (!process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY) {
   throw new Error("Missing NEXT_PUBLIC_STRIPE_SECRET_KEY environment variable");
 }
@@ -206,6 +249,11 @@ export async function POST(request: NextRequest) {
           planPrice: selectedPlan.monthly_price.toString(), // Optional: Add this for more context
         },
       });
+
+      const sessionSuffix = session.id.slice(-4).toUpperCase();
+      const projectKey = `PRJ${sessionSuffix}`;
+      const channelName = `prj-${session.id.slice(-4).toLowerCase()}`;
+
       // Create Jira project after successful checkout session creation
       await createJiraProject({
         customerEmail,
@@ -219,6 +267,14 @@ export async function POST(request: NextRequest) {
         customerEmail,
         customerName: customerFullName || '',
         sessionId: session.id
+      });
+
+      // Send invitation email
+      await sendInviteEmail({
+        customerEmail,
+        customerName: customerFullName || '',
+        channelName: channelName,
+        projectKey: projectKey
       });
     } 
     // Handle one-time payment checkout
@@ -279,6 +335,11 @@ export async function POST(request: NextRequest) {
         },
       });
 
+      // Create Jira project and Slack channel
+      const sessionSuffix = session.id.slice(-4).toUpperCase();
+      const projectKey = `PRJ${sessionSuffix}`;
+      const channelName = `prj-${session.id.slice(-4).toLowerCase()}`;
+
       // Create Jira project after successful checkout session creation
       await createJiraProject({
         customerEmail,
@@ -292,6 +353,14 @@ export async function POST(request: NextRequest) {
         customerEmail,
         customerName: customerFullName || '',
         sessionId: session.id
+      });
+
+      // Send invitation email
+      await sendInviteEmail({
+        customerEmail,
+        customerName: customerFullName || '',
+        channelName: channelName,
+        projectKey: projectKey
       });
     }
 
