@@ -54,7 +54,7 @@ async function createJiraProject(customerData: {
 }) {
   try {
     // Extract last 4 characters from session ID
-    const sessionSuffix = customerData.sessionId.slice(-4);
+    const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
     
     // Create project key with PRJ prefix and session ID suffix
     const projectKey = `PRJ${sessionSuffix}`;
