@@ -44,6 +44,49 @@ interface SubscriptionPlan {
   updated_at: string;
 }
 
+async function createJiraProject(customerData: {
+  customerEmail: string;
+  customerName: string;
+  isSubscription: boolean;
+  subscriptionId?: string;
+  selectedServices?: string[];
+  sessionId: string;
+}) {
+  try {
+    // Format a unique project key based on customer name
+    const nameParts = customerData.customerName?.split(' ') || ['Project'];
+    const initials = nameParts.map(part => part.charAt(0).toUpperCase()).join('');
+    const projectKey = `${initials}${Date.now().toString().slice(-4)}`;
+    
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerEmail: customerData.customerEmail,
+        customerName: customerData.customerName,
+        projectKey: projectKey,
+        isSubscription: customerData.isSubscription,
+        subscriptionId: customerData.subscriptionId,
+        selectedServices: customerData.selectedServices,
+        sessionId: customerData.sessionId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error creating Jira project:', errorData);
+      // We'll log the error but continue with checkout to not block payment flow
+    } else {
+      const data = await response.json();
+      console.log('Jira project created successfully:', data);
+      return data;
+    }
+  } catch (error) {
+    console.error('Failed to create Jira project:', error);
+    // Log error but don't throw to prevent blocking the payment flow
+  }
+}
+
 if (!process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY) {
   throw new Error("Missing NEXT_PUBLIC_STRIPE_SECRET_KEY environment variable");
 }
@@ -120,6 +163,14 @@ export async function POST(request: NextRequest) {
           planPrice: selectedPlan.monthly_price.toString(), // Optional: Add this for more context
         },
       });
+      // Create Jira project after successful checkout session creation
+      await createJiraProject({
+        customerEmail,
+        customerName: customerFullName || '',
+        isSubscription: true,
+        subscriptionId,
+        sessionId: session.id
+      });
     } 
     // Handle one-time payment checkout
     else {
@@ -177,6 +228,15 @@ export async function POST(request: NextRequest) {
           customerEmail: customerEmail, // Add this line for redundancy
           totalAmount: totalPrice.toString(), // Optional: Add this for more context
         },
+      });
+      
+      // Create Jira project after successful checkout session creation
+      await createJiraProject({
+        customerEmail,
+        customerName: customerFullName || '',
+        isSubscription: false,
+        selectedServices,
+        sessionId: session.id
       });
     }
 
