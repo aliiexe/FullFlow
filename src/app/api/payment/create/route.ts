@@ -53,10 +53,14 @@ async function createJiraProject(customerData: {
   sessionId: string;
 }) {
   try {
-    // Format a unique project key based on customer name
-    const nameParts = customerData.customerName?.split(' ') || ['Project'];
-    const initials = nameParts.map(part => part.charAt(0).toUpperCase()).join('');
-    const projectKey = `${initials}${Date.now().toString().slice(-4)}`;
+    // Extract last 4 characters from session ID
+    const sessionSuffix = customerData.sessionId.slice(-4);
+    
+    // Create project key with PRJ prefix and session ID suffix
+    const projectKey = `PRJ${sessionSuffix}`;
+    
+    // Create company name as "Project" plus the last 4 chars of session ID
+    const companyName = `Project ${sessionSuffix}`;
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
       method: 'POST',
@@ -64,7 +68,8 @@ async function createJiraProject(customerData: {
       body: JSON.stringify({
         customerEmail: customerData.customerEmail,
         customerName: customerData.customerName,
-        projectKey: projectKey,
+        companyName: companyName, // Add the custom company name
+        projectKey: projectKey,   // Use the custom project key format
         isSubscription: customerData.isSubscription,
         subscriptionId: customerData.subscriptionId,
         selectedServices: customerData.selectedServices,
@@ -79,6 +84,7 @@ async function createJiraProject(customerData: {
     } else {
       const data = await response.json();
       console.log('Jira project created successfully:', data);
+      console.log(`Project Key: ${projectKey}, Company Name: ${companyName}`);
       return data;
     }
   } catch (error) {
@@ -229,7 +235,7 @@ export async function POST(request: NextRequest) {
           totalAmount: totalPrice.toString(), // Optional: Add this for more context
         },
       });
-      
+
       // Create Jira project after successful checkout session creation
       await createJiraProject({
         customerEmail,
