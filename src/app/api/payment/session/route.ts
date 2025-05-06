@@ -23,6 +23,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       customer_email: session.customer_email,
+      customer_name: session.metadata?.customerFullName || null,
       amount_total: session.amount_total,
     });
   } catch (error) {

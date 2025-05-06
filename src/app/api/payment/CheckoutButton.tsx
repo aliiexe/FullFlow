@@ -1,4 +1,3 @@
-//// filepath: c:\Users\abour\Documents\ProjectsF\full-flow\src\app\api\payment\CheckoutButton.tsx
 "use client";
 
 import React, { useState } from 'react';
@@ -11,20 +10,32 @@ interface CheckoutButtonProps {
   selectedServices: string[];
   totalPrice: number;
   disabled?: boolean;
+  subscriptionId?: string;
+  isSubscription?: boolean;
 }
 
 export default function CheckoutButton({ 
   selectedServices, 
   totalPrice,
-  disabled = false 
+  disabled = false,
+  subscriptionId = '',
+  isSubscription = false
 }: CheckoutButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fullName,setFullName] = useState('');
   const [email, setEmail] = useState('');
 
   const handleCheckout = async () => {
-    if (selectedServices.length === 0) {
+    // For standard service purchases, validate services selection
+    if (!isSubscription && selectedServices.length === 0) {
       setError("Please select at least one service");
+      return;
+    }
+    
+    // Email is required for all purchases
+    if (!email) {
+      setError("Please enter your email address");
       return;
     }
   
@@ -38,6 +49,9 @@ export default function CheckoutButton({
         body: JSON.stringify({
           selectedServices,
           customerEmail: email,
+          customerFullName: fullName,
+          subscriptionId,
+          isSubscription
         }),
       });
   
@@ -61,13 +75,28 @@ export default function CheckoutButton({
   return (
     <div className="w-full">
       <input
+        type="text"
+        placeholder="Enter your full name"
+        value={fullName}
+        onChange={(e) => setFullName(e.target.value)}
+        className="mb-4 w-full px-4 py-3 bg-white/[0.03] backdrop-blur-sm
+                   text-white placeholder-gray-400
+                   border border-white/10 rounded-lg 
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500/50
+                   focus:border-indigo-500/50 transition-all"
+        required
+      />
+      <input
         type="email"
         placeholder="Enter your email"
         value={email}
         onChange={(e) => setEmail(e.target.value)}
-        className="mb-4 w-full px-4 py-2 bg-white bg-opacity-90 text-gray-800
-                   border border-gray-300 rounded-md focus:outline-none 
-                   focus:ring-2 focus:ring-indigo-500 placeholder-gray-400"
+        className="mb-4 w-full px-4 py-3 bg-white/[0.03] backdrop-blur-sm
+                   text-white placeholder-gray-400
+                   border border-white/10 rounded-lg
+                   focus:outline-none focus:ring-2 focus:ring-indigo-500/50
+                   focus:border-indigo-500/50 transition-all"
+        required
       />
       {error && (
         <div className="mb-4 text-red-500 text-sm bg-red-100/10 p-3 rounded-md border border-red-500/20">
@@ -76,11 +105,11 @@ export default function CheckoutButton({
       )}
       <button
         onClick={handleCheckout}
-        disabled={isLoading || disabled || selectedServices.length === 0}
+        disabled={isLoading || disabled || !email || !fullName}
         className={`w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
           text-white text-lg font-medium rounded-lg transition-all shadow-lg 
           shadow-indigo-900/50 flex items-center justify-center
-          ${(isLoading || disabled || selectedServices.length === 0) 
+          ${(isLoading || disabled || !email || !fullName) 
             ? 'opacity-70 cursor-not-allowed' 
             : 'hover:from-indigo-500 hover:to-indigo-600'}`}
       >
@@ -91,7 +120,7 @@ export default function CheckoutButton({
           </>
         ) : (
           <>
-            Checkout ${totalPrice.toLocaleString()}
+            {isSubscription ? 'Subscribe' : 'Checkout'} ${totalPrice.toLocaleString()}
           </>
         )}
       </button>

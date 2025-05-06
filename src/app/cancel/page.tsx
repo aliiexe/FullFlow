@@ -24,9 +24,9 @@ export default function CancelPage() {
           Your payment was cancelled. If you need any assistance or have questions about our services, please don't hesitate to contact us.
         </p>
         
-        <Link href="/pricing" className="flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
+        <Link href="/" className="flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
           <ArrowLeft className="w-4 h-4 mr-2" />
-          Return to Pricing
+          Return to Home
         </Link>
       </motion.div>
     </div>
