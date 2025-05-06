@@ -11,6 +11,7 @@ export default function SuccessPage() {
   const session_id = searchParams.get("session_id");
   const [sessionDetails, setSessionDetails] = useState<{
     customer_email: string | null;
+    customer_name: string | null;
     amount_total: number | null;
   } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -51,11 +52,14 @@ export default function SuccessPage() {
           <p className="text-red-500">{error}</p>
         ) : sessionDetails ? (
           <>
-            <p className="text-gray-300 mb-4">
-              Thank you for your purchase, <strong>{sessionDetails.customer_email || "Unknown"}</strong>!
+            <p className="text-gray-300 mb-2">
+              Thank you for your purchase, <strong>{sessionDetails.customer_name || "valued customer"}</strong>!
             </p>
-            <p className="text-gray-300 mb-8">
-              Total Paid: <strong>${(sessionDetails.amount_total! / 100).toFixed(2)}</strong>
+            <p className="text-gray-300 mb-4 text-sm">
+              Confirmation sent to <strong>{sessionDetails.customer_email || "your email"}</strong>
+            </p>
+            <p className="text-gray-300 mb-8 text-xl">
+              Total Paid: <strong className="text-green-400">${(sessionDetails.amount_total! / 100).toFixed(2)}</strong>
             </p>
           </>
         ) : (

@@ -1,7 +1,7 @@
 'use client';
 import React, { useState, useEffect } from 'react';
-import { Check, Plus, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { Check, Plus, ChevronDown, ChevronUp, Loader2, ArrowRight } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
 import CheckoutButton from '../api/payment/CheckoutButton';
 
 // Define types based on your API schema
@@ -47,19 +47,50 @@ export interface Service {
   categoryId: string;
 }
 
+// Update the SubscriptionPlan interface to match the API response
 export interface SubscriptionPlan {
   id: string;
   name: string;
   description: string;
-  price: number;
-  features: string[];
+  monthly_price: number;
+  yearly_price: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
 }
 
-// Default subscription plans (can be moved to API later)
-const defaultSubscriptionPlans: SubscriptionPlan[] = [
-  { id: 'starter', name: 'Starter', description: 'For small businesses starting with AI', price: 999, features: ['1 AI Model', 'Basic Support', '5 User Accounts'] },
-  { id: 'growth', name: 'Growth', description: 'For growing businesses', price: 2499, features: ['3 AI Models', 'Priority Support', '20 User Accounts', 'API Access'] },
-  { id: 'enterprise', name: 'Enterprise', description: 'For large organizations', price: 4999, features: ['Unlimited AI Models', '24/7 Support', 'Unlimited Users', 'Dedicated Account Manager'] }
+// Default subscription plans (fallback)
+const defaultSubscriptionPlans = [
+  { 
+    id: 'starter', 
+    name: 'Starter', 
+    description: 'For small businesses starting with AI', 
+    monthly_price: 999, 
+    yearly_price: 9999,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  { 
+    id: 'growth', 
+    name: 'Growth', 
+    description: 'For growing businesses', 
+    monthly_price: 2499, 
+    yearly_price: 24990,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  },
+  { 
+    id: 'enterprise', 
+    name: 'Enterprise', 
+    description: 'For large organizations', 
+    monthly_price: 4999, 
+    yearly_price: 49990,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString()
+  }
 ];
 
 // Helper function to map API category names to ServiceCategory type
@@ -79,9 +110,11 @@ const PricingBuilder: React.FC = () => {
   const [expandedCategory, setExpandedCategory] = useState<ServiceCategory | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
   const [services, setServices] = useState<Service[]>([]);
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>(defaultSubscriptionPlans);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
+  const [showSubscriptionCheckout, setShowSubscriptionCheckout] = useState(false);
 
   // Fetch data from API
   useEffect(() => {
@@ -103,6 +136,13 @@ const PricingBuilder: React.FC = () => {
         }
         const deliverablesData: Deliverable[] = await deliverablesResponse.json();
         
+        // Fetch subscription tiers
+        const subsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`);
+        if (!subsResponse.ok) {
+          throw new Error('Failed to fetch subscription tiers');
+        }
+        const subscriptionData = await subsResponse.json();
+        
         // Process data to match your component's expected format
         const processedServices: Service[] = deliverablesData
             .filter(deliverable => deliverable.is_active)
@@ -123,6 +163,7 @@ const PricingBuilder: React.FC = () => {
             });
         
         setServices(processedServices);
+        setSubscriptionPlans(subscriptionData.filter((plan: any) => plan.is_active));
       } catch (err) {
         console.error('Error fetching data:', err);
         setError('Failed to load services. Please try again later.');
@@ -135,6 +176,9 @@ const PricingBuilder: React.FC = () => {
           { id: 'creative-brand', title: 'Brand Identity', description: 'Complete brand identity development', price: 3500, category: 'creative', categoryId: 'creative-cat' },
           { id: 'growth-analytics', title: 'Analytics Setup', description: 'Complete analytics and reporting setup', price: 1500, category: 'growth', categoryId: 'growth-cat' }
         ]);
+        
+        // Use default subscription plans as fallback
+        setSubscriptionPlans(defaultSubscriptionPlans);
       } finally {
         setIsLoading(false);
       }
@@ -162,6 +206,16 @@ const PricingBuilder: React.FC = () => {
     setExpandedCategory(expandedCategory === cat ? null : cat);
   };
 
+  const selectSubscription = (planId: string) => {
+    setSelectedSubscriptionId(planId);
+    setShowSubscriptionCheckout(true);
+  };
+
+  const backToSubscriptionSelection = () => {
+    setSelectedSubscriptionId(null);
+    setShowSubscriptionCheckout(false);
+  };
+
   const categorized: Record<ServiceCategory, Service[]> = {
     ai: services.filter(s => s.category === 'ai'),
     digital: services.filter(s => s.category === 'digital'),
@@ -186,9 +240,12 @@ const PricingBuilder: React.FC = () => {
     
     // Return up to 2 random services
     return shuffled.slice(0, 2);
-};
+  };
 
   const recommendations = getRecommendations();
+
+  // Find selected subscription plan
+  const selectedPlan = subscriptionPlans.find(plan => plan.id === selectedSubscriptionId);
 
   // Loading state
   if (isLoading) {
@@ -233,7 +290,11 @@ const PricingBuilder: React.FC = () => {
         <div className="flex justify-center mb-12 w-full">
           <div className="backdrop-blur-md rounded-lg p-1 shadow-md inline-flex border border-white/10 bg-white/[0.03] w-full max-w-md">
             <button
-              onClick={() => setPricingModel('perService')}
+              onClick={() => {
+                setPricingModel('perService');
+                setSelectedSubscriptionId(null);
+                setShowSubscriptionCheckout(false);
+              }}
               className={`flex-1 px-6 py-3 rounded-md text-sm font-medium ${
                 pricingModel === 'perService' ? 'bg-indigo-600/80 text-white' : 'text-gray-300 hover:text-white hover:bg-white/5'
               } transition-colors`}
@@ -241,7 +302,11 @@ const PricingBuilder: React.FC = () => {
               Pay Per Deliverable
             </button>
             <button
-              onClick={() => setPricingModel('subscription')}
+              onClick={() => {
+                setPricingModel('subscription');
+                setSelectedSubscriptionId(null);
+                setShowSubscriptionCheckout(false);
+              }}
               className={`flex-1 px-6 py-3 rounded-md text-sm font-medium ${
                 pricingModel === 'subscription' ? 'bg-indigo-600/80 text-white' : 'text-gray-300 hover:text-white hover:bg-white/5'
               } transition-colors`}
@@ -372,8 +437,9 @@ const PricingBuilder: React.FC = () => {
                   </div>
                   <div className="mt-6">
                     <CheckoutButton 
-                    selectedServices={selectedServices} 
-                    totalPrice={totalPrice}
+                      selectedServices={selectedServices} 
+                      totalPrice={totalPrice}
+                      isSubscription={false}
                     />
                   </div>
                   <p className="text-sm text-gray-400 mt-4 text-center">No commitment. Start building today.</p>
@@ -382,40 +448,114 @@ const PricingBuilder: React.FC = () => {
             </div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full">
-            {subscriptionPlans.map(plan => (
-              <motion.div
-                key={plan.id}
-                initial={{ opacity: 0, y: 20 }}
-                whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                viewport={{ once: true }}
-                className={`backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-700/20 hover:-translate-y-1 w-full`}
+          <AnimatePresence mode="wait">
+            {!showSubscriptionCheckout ? (
+              <motion.div 
+                key="plan-selection"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full"
               >
-                <div className="p-8 w-full">
-                  <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                  <p className="text-gray-300 mb-6">{plan.description}</p>
-                  <div className="mb-6 flex items-baseline">
-                    <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${plan.price}</span>
-                    <span className="text-gray-400 ml-1">/month</span>
-                  </div>
-                  <ul className="space-y-3 mb-8">
-                    {plan.features.map((feat, i) => (
-                      <li key={i} className="flex items-start">
-                        <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                        <span className="text-gray-300">{feat}</span>
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    className={`w-full py-3 rounded-lg font-medium transition-colors`}
+                {subscriptionPlans.map((plan) => (
+                  <motion.div
+                    key={plan.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.5 }}
+                    viewport={{ once: true }}
+                    className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-700/20 hover:-translate-y-1 w-full"
                   >
-                    Choose Plan
-                  </button>
-                </div>
+                    <div className="p-8 w-full">
+                      <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
+                      <p className="text-gray-300 mb-6">{plan.description || `${plan.name} subscription tier`}</p>
+                      <div className="mb-6 flex items-baseline">
+                        <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${plan.monthly_price}</span>
+                        <span className="text-gray-400 ml-1">/month</span>
+                      </div>
+                      <ul className="space-y-3 mb-8">
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Full access to all features</span>
+                        </li>
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Priority customer support</span>
+                        </li>
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Regular updates</span>
+                        </li>
+                      </ul>
+                      <button
+                        onClick={() => selectSubscription(plan.id)}
+                        className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
+                          text-white text-lg font-medium rounded-lg transition-all shadow-lg 
+                          shadow-indigo-900/50 flex items-center justify-center
+                          hover:from-indigo-500 hover:to-indigo-600"
+                      >
+                        Choose Plan
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
               </motion.div>
-            ))}
-          </div>
+            ) : (
+              <motion.div
+                key="subscription-checkout"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="w-full max-w-xl mx-auto backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] p-8"
+              >
+                {selectedPlan && (
+                  <>
+                    <button 
+                      onClick={backToSubscriptionSelection}
+                      className="mb-6 text-indigo-400 hover:text-indigo-300 flex items-center"
+                    >
+                      <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
+                      Back to plans
+                    </button>
+                    
+                    <h3 className="text-2xl font-bold text-white mb-4">Subscribe to {selectedPlan.name}</h3>
+                    
+                    <div className="mb-6 flex items-baseline">
+                      <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                        ${selectedPlan.monthly_price}
+                      </span>
+                      <span className="text-gray-400 ml-1">/month</span>
+                    </div>
+                    
+                    <div className="mb-8">
+                      <p className="text-gray-300 mb-4">{selectedPlan.description}</p>
+                      <ul className="space-y-3">
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Full access to all features</span>
+                        </li>
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Priority customer support</span>
+                        </li>
+                        <li className="flex items-start">
+                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                          <span className="text-gray-300">Regular updates</span>
+                        </li>
+                      </ul>
+                    </div>
+                    
+                    <CheckoutButton 
+                      selectedServices={[]} // Adding a dummy ID to pass validation
+                      totalPrice={selectedPlan.monthly_price}
+                      subscriptionId={selectedPlan.id}
+                      isSubscription={true}
+                    />
+                  </>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
         )}
       </div>
     </section>

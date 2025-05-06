@@ -33,7 +33,16 @@ interface Deliverable {
   };
 }
 
-
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  monthly_price: number;
+  yearly_price: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
 
 if (!process.env.NEXT_PUBLIC_STRIPE_SECRET_KEY) {
   throw new Error("Missing NEXT_PUBLIC_STRIPE_SECRET_KEY environment variable");
@@ -45,57 +54,135 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { selectedServices, customerEmail } = body;
+    const { selectedServices, customerFullName, customerEmail, subscriptionId, isSubscription } = body;
     
-    if (!selectedServices || !Array.isArray(selectedServices) || selectedServices.length === 0) {
+    // Validate email for all requests
+    if (!customerEmail) {
       return NextResponse.json(
-        { error: "Invalid request: selectedServices is required" },
+        { error: "Customer email is required" },
         { status: 400 }
       );
     }
     
-    // Fetch deliverables from your API
-    const deliverablesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/deliverables`);
-    if (!deliverablesResponse.ok) {
-      throw new Error('Failed to fetch deliverables');
-    }
-    const deliverables: Deliverable[] = await deliverablesResponse.json();
+    let session;
     
-    // Create line items for each selected service
-    const lineItems = selectedServices.map((serviceId: string) => {
-      // Find the matching deliverable
-      const deliverable = deliverables.find(d => d.id === serviceId);
+    // Handle subscription checkout
+    if (isSubscription && subscriptionId) {
+      // Fetch subscription details from your API
+      const subscriptionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`);
+      if (!subscriptionResponse.ok) {
+        throw new Error('Failed to fetch subscription plans');
+      }
+      const subscriptionPlans: SubscriptionPlan[] = await subscriptionResponse.json();
       
-      if (!deliverable) {
-        throw new Error(`Deliverable with ID ${serviceId} not found`);
+      // Find the selected subscription plan
+      const selectedPlan = subscriptionPlans.find(plan => plan.id === subscriptionId);
+      
+      if (!selectedPlan) {
+        throw new Error(`Subscription plan with ID ${subscriptionId} not found`);
       }
       
-      return {
-        price_data: {
-          currency: 'usd',
-          product_data: {
-            name: deliverable.name,
-            description: deliverable.description || `Service: ${deliverable.name}`,
-          },
-          unit_amount: (deliverable.base_price || 1500) * 100, // Convert to cents, use 1500 as fallback
+      // Create a subscription product in Stripe (or use existing one)
+      const product = await stripe.products.create({
+        name: selectedPlan.name,
+        description: selectedPlan.description || `${selectedPlan.name} subscription`,
+      });
+      
+      // Create a price for the subscription
+      const price = await stripe.prices.create({
+        product: product.id,
+        unit_amount: selectedPlan.monthly_price * 100, // Convert to cents
+        currency: 'usd',
+        recurring: {
+          interval: 'month',
         },
-        quantity: 1,
-      };
-    });
-    
-    const session = await stripe.checkout.sessions.create({
-      payment_method_types: ["card"],
-      line_items: lineItems,
-      mode: "payment",
-      customer_email: customerEmail,
-      success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${request.nextUrl.origin}/cancel`,
-      metadata: {
-        selectedServices: JSON.stringify(selectedServices).slice(0, 499),
-      },
-    });
+      });
+      
+      // Create the subscription checkout session
+      session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: [
+          {
+            price: price.id,
+            quantity: 1,
+          },
+        ],
+        mode: "subscription",
+        customer_email: customerEmail,
+        success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${request.nextUrl.origin}/cancel`,
+        metadata: {
+          customerFullName: customerFullName,
+          subscriptionId: subscriptionId,
+          isSubscription: 'true',
+          customerEmail: customerEmail, // Add this line for redundancy
+          planName: selectedPlan.name, // Optional: Add this for more context
+          planPrice: selectedPlan.monthly_price.toString(), // Optional: Add this for more context
+        },
+      });
+    } 
+    // Handle one-time payment checkout
+    else {
+      if (!selectedServices || !Array.isArray(selectedServices) || selectedServices.length === 0) {
+        return NextResponse.json(
+          { error: "Invalid request: selectedServices is required" },
+          { status: 400 }
+        );
+      }
+      
+      // Fetch deliverables from your API
+      const deliverablesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/deliverables`);
+      if (!deliverablesResponse.ok) {
+        throw new Error('Failed to fetch deliverables');
+      }
+      const deliverables: Deliverable[] = await deliverablesResponse.json();
+      
+      // Create line items for each selected service
+      let totalPrice = 0;
+      const lineItems = selectedServices.map((serviceId: string) => {
+        // Find the matching deliverable
+        const deliverable = deliverables.find(d => d.id === serviceId);
+        
+        if (!deliverable) {
+          throw new Error(`Deliverable with ID ${serviceId} not found`);
+        }
+        
+        const price = (deliverable.base_price || 1500) * 100; // Convert to cents, use 1500 as fallback
+        totalPrice += price;
+        
+        return {
+          price_data: {
+            currency: 'usd',
+            product_data: {
+              name: deliverable.name,
+              description: deliverable.description || `Service: ${deliverable.name}`,
+            },
+            unit_amount: price,
+          },
+          quantity: 1,
+        };
+      });
+      
+      session = await stripe.checkout.sessions.create({
+        payment_method_types: ["card"],
+        line_items: lineItems,
+        mode: "payment",
+        customer_email: customerEmail,
+        success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${request.nextUrl.origin}/cancel`,
+        metadata: {
+          customerFullName: customerFullName,
+          selectedServices: JSON.stringify(selectedServices).slice(0, 499),
+          isSubscription: 'false',
+          customerEmail: customerEmail, // Add this line for redundancy
+          totalAmount: totalPrice.toString(), // Optional: Add this for more context
+        },
+      });
+    }
 
+    console.log('Customer Full Name:', customerFullName);
     console.log('Customer Email:', customerEmail);
+    console.log('Session Mode:', isSubscription ? 'subscription' : 'payment');
     
     return NextResponse.json({ id: session.id, url: session.url });
   } catch (error) {
