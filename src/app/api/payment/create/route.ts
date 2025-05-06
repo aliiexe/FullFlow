@@ -60,7 +60,7 @@ async function createJiraProject(customerData: {
     const projectKey = `PRJ${sessionSuffix}`;
     
     // Create company name as "Project" plus the last 4 chars of session ID
-    const companyName = `Project ${sessionSuffix}`;
+    const companyName = `PROJECT ${sessionSuffix}`;
     
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
       method: 'POST',
