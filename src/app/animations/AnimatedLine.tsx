@@ -110,8 +110,8 @@ const AnimatedLine = () => {
           className="gradient-line small-line" 
           ref={smallSvgRef} 
           width="100%" 
-          height="14800" 
-          viewBox="0 0 430 14800" 
+          height="10550" 
+          viewBox="0 0 430 10550" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
           style={{ display: isMobile ? 'block' : 'none' }}
