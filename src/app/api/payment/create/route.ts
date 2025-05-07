@@ -46,8 +46,8 @@ interface SubscriptionPlan {
 interface ProjectInfos {
   customerEmail: string;
   projectKey: string;
-  jiraUrl: string;
-  slackUrl: string;
+  jiraurl: string;
+  slackurl: string;
 }
 
 async function createJiraProject(customerData: {
@@ -183,8 +183,8 @@ async function sendProjectInfo(data: ProjectInfos) {
     console.log('Sending project information with details:');
     console.log('- Customer Email:', data.customerEmail);
     console.log('- Project Key:', data.projectKey);
-    console.log('- Jira URL:', data.jiraUrl);
-    console.log('- Slack URL:', data.slackUrl);
+    console.log('- Jira URL:', data.jiraurl);
+    console.log('- Slack URL:', data.slackurl);
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/project-infos`, {
       method: 'POST',
@@ -304,8 +304,8 @@ export async function POST(request: NextRequest) {
       await sendProjectInfo({
         customerEmail,
         projectKey,
-        jiraUrl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
-        slackUrl: `https://slack.com/app_redirect?channel=${channelName}`
+        jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
+        slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
 
       // Send invitation email
@@ -398,10 +398,10 @@ export async function POST(request: NextRequest) {
       await sendProjectInfo({
         customerEmail,
         projectKey,
-        jiraUrl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
-        slackUrl: `https://slack.com/app_redirect?channel=${channelName}`
+        jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
+        slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
-      
+
       // Send invitation email
       await sendInviteEmail({
         customerEmail,
