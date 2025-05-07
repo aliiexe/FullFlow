@@ -1,5 +1,6 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
+import { console } from "node:inspector";
 
 interface Category {
   id: string;
@@ -44,8 +45,8 @@ interface SubscriptionPlan {
 }
 
 interface ProjectInfos {
-  customerEmail: string;
-  projectKey: string;
+  email: string;
+  projectkey: string;
   jiraurl: string;
   slackurl: string;
 }
@@ -181,8 +182,8 @@ async function sendInviteEmail(data: {
 async function sendProjectInfo(data: ProjectInfos) {
   try {
     console.log('Sending project information with details:');
-    console.log('- Customer Email:', data.customerEmail);
-    console.log('- Project Key:', data.projectKey);
+    console.log('- Customer Email:', data.email);
+    console.log('- Project Key:', data.projectkey);
     console.log('- Jira URL:', data.jiraurl);
     console.log('- Slack URL:', data.slackurl);
 
@@ -301,9 +302,12 @@ export async function POST(request: NextRequest) {
         sessionId: session.id
       });
 
+      const email = customerEmail;
+      const projectkey = projectKey;
+
       await sendProjectInfo({
-        customerEmail,
-        projectKey,
+        email,
+        projectkey,
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
@@ -395,9 +399,12 @@ export async function POST(request: NextRequest) {
         sessionId: session.id
       });
 
+      const email = customerEmail;
+      const projectkey = projectKey;
+
       await sendProjectInfo({
-        customerEmail,
-        projectKey,
+        email,
+        projectkey,
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
