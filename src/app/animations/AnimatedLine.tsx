@@ -71,8 +71,8 @@ const AnimatedLine = () => {
           className="gradient-line large-line" 
           ref={largeSvgRef} 
           width="100%" 
-          height="7544.267" 
-          viewBox="0 0 1898 7544.267" 
+          height="7600" 
+          viewBox="0 0 1898 7600" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
           style={{ display: isMobile ? 'none' : 'block' }}
@@ -110,8 +110,8 @@ const AnimatedLine = () => {
           className="gradient-line small-line" 
           ref={smallSvgRef} 
           width="100%" 
-          height="14835" 
-          viewBox="0 0 430 14835" 
+          height="14800" 
+          viewBox="0 0 430 14800" 
           fill="none" 
           xmlns="http://www.w3.org/2000/svg"
           style={{ display: isMobile ? 'block' : 'none' }}
