@@ -22,7 +22,7 @@ interface Deliverable {
   service_category_id: string;
   name: string;
   description: string | null;
-  base_price: number | null;
+  price: number | null;
   is_active: boolean;
   complexity_level: string | null;
   created_at: string;
@@ -52,8 +52,7 @@ export interface SubscriptionPlan {
   id: string;
   name: string;
   description: string;
-  monthly_price: number;
-  yearly_price: number;
+  price: number;
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -64,9 +63,8 @@ const defaultSubscriptionPlans = [
   { 
     id: 'starter', 
     name: 'Starter', 
-    description: 'For small businesses starting with AI', 
-    monthly_price: 999, 
-    yearly_price: 9999,
+    description: 'Pay Per Month', 
+    price: 999,
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -74,9 +72,8 @@ const defaultSubscriptionPlans = [
   { 
     id: 'growth', 
     name: 'Growth', 
-    description: 'For growing businesses', 
-    monthly_price: 2499, 
-    yearly_price: 24990,
+    description: 'Pay Per Month', 
+    price: 2499,
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -84,9 +81,8 @@ const defaultSubscriptionPlans = [
   { 
     id: 'enterprise', 
     name: 'Enterprise', 
-    description: 'For large organizations', 
-    monthly_price: 4999, 
-    yearly_price: 49990,
+    description: 'Pay Per Month', 
+    price: 4999,
     is_active: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString()
@@ -156,7 +152,7 @@ const PricingBuilder: React.FC = () => {
                 id: deliverable.id,
                 title: deliverable.name,
                 description: deliverable.description || `Professional ${deliverable.name} service tailored to your needs`,
-                price: deliverable.base_price || 1500, // Fallback price if null
+                price: deliverable.price || 1500, // Fallback price if null
                 category: mapCategoryNameToType(category.name),
                 categoryId: deliverable.service_category_id
                 };
@@ -468,25 +464,32 @@ const PricingBuilder: React.FC = () => {
                   >
                     <div className="p-8 w-full">
                       <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                      <p className="text-gray-300 mb-6">{plan.description || `${plan.name} subscription tier`}</p>
-                      <div className="mb-6 flex items-baseline">
-                        <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${plan.monthly_price}</span>
-                        <span className="text-gray-400 ml-1">/month</span>
+                      
+                      <div className="my-6 flex flex-col items-start">
+                        <div className="flex items-baseline mb-1">
+                          <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${plan.price}</span>
+                        </div>
+                        <span className="text-gray-400 text-sm">{plan.description}</span>
                       </div>
-                      <ul className="space-y-3 mb-8">
-                        <li className="flex items-start">
-                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                          <span className="text-gray-300">Full access to all features</span>
-                        </li>
-                        <li className="flex items-start">
-                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                          <span className="text-gray-300">Priority customer support</span>
-                        </li>
-                        <li className="flex items-start">
-                          <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                          <span className="text-gray-300">Regular updates</span>
-                        </li>
-                      </ul>
+                      
+                      {/* Features section */}
+                      <div className="border-t border-white/10 pt-6 mb-8">
+                        <ul className="space-y-3">
+                          <li className="flex items-start">
+                            <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                            <span className="text-gray-300">Full access to all features</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                            <span className="text-gray-300">Priority customer support</span>
+                          </li>
+                          <li className="flex items-start">
+                            <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
+                            <span className="text-gray-300">Regular updates</span>
+                          </li>
+                        </ul>
+                      </div>
+                      
                       <button
                         onClick={() => selectSubscription(plan.id)}
                         className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
@@ -520,15 +523,14 @@ const PricingBuilder: React.FC = () => {
                     
                     <h3 className="text-2xl font-bold text-white mb-4">Subscribe to {selectedPlan.name}</h3>
                     
-                    <div className="mb-6 flex items-baseline">
+                    <div className="mb-2 flex items-baseline">
                       <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
-                        ${selectedPlan.monthly_price}
+                        ${selectedPlan.price}
                       </span>
-                      <span className="text-gray-400 ml-1">/month</span>
                     </div>
+                    <span className="text-gray-400 text-sm block mb-6">{selectedPlan.description}</span>
                     
-                    <div className="mb-8">
-                      <p className="text-gray-300 mb-4">{selectedPlan.description}</p>
+                    <div className="mb-8 border-t border-white/10 pt-6">
                       <ul className="space-y-3">
                         <li className="flex items-start">
                           <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
@@ -546,8 +548,8 @@ const PricingBuilder: React.FC = () => {
                     </div>
                     
                     <CheckoutButton 
-                      selectedServices={[]} // Adding a dummy ID to pass validation
-                      totalPrice={selectedPlan.monthly_price}
+                      selectedServices={[]} 
+                      totalPrice={selectedPlan.price}
                       subscriptionId={selectedPlan.id}
                       isSubscription={true}
                     />

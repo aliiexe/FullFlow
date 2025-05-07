@@ -217,3 +217,16 @@ body {
   84% { transform: translate(-30px, -150px); }
   100% { transform: translate(0, 0); }
 } */
+
+@keyframes shine {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(100%);
+  }
+}
+
+.animate-shine {
+  animation: shine 3s infinite;
+}

@@ -9,6 +9,7 @@ import SlidingFooter from "./ui/FooterWithReveal";
 import FaqSection from "./sections/FaqSection";
 // import NavBar from "./ui/AboubakrNavBar";
 import NavBar from "./ui/NavBar";
+import TeamCompositionSection from "./sections/TeamCompositionSection";
 
 export default function Home() {
   return (
@@ -18,6 +19,7 @@ export default function Home() {
       {/* <NavBar /> */}
       {/* <AboubakrNavBar/> */}
       <HeroSection />
+      <TeamCompositionSection />
       <ServicesSection />
       <PricingBuilder />
       <ProcessSection />

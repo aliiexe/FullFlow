@@ -2,6 +2,8 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import AnimatedText from '../animations/TextHover';
+import Image from 'next/image';
+import Link from 'next/link';
 
 const NavBar = () => {
   const [mounted, setMounted] = useState(false);
@@ -125,33 +127,54 @@ const NavBar = () => {
       initial={{ opacity: 0, y: -20 }}
       animate={{ opacity: mounted ? 1 : 0, y: 0 }}
       transition={{ duration: 0.5, ease: "easeInOut" }}
-      className="fixed top-6 left-0 right-0 z-50 flex justify-center w-full px-4"
+      className="fixed top-4 left-0 right-0 z-50 flex justify-center w-full px-4"
     >
       <motion.div
         className={`flex items-center justify-between ${isMobile ? 'flex-col w-full' : 'flex-row w-auto'} max-w-full overflow-hidden`}
         style={{
-          borderRadius: isMobile && isOpen ? '24px' : '32px',
+          borderRadius: isMobile && isOpen ? '16px' : '20px',
           background: 'linear-gradient(142deg, rgba(255, 255, 255, 0.15) -61.21%, rgba(255, 255, 255, 0.05) 96.65%)',
           boxShadow: '0px 4px 24px -1px rgba(0, 0, 0, 0.20)',
           backdropFilter: 'blur(20px)',
           WebkitBackdropFilter: 'blur(20px)',
-          padding: isMobile ? '12px 16px' : '8px 16px',
+          padding: isMobile ? '12px 16px' : '10px 20px',
         }}
-        animate={isMobile && isOpen ? { borderRadius: '24px' } : { borderRadius: '32px' }}
+        animate={isMobile && isOpen ? { borderRadius: '16px' } : { borderRadius: '20px' }}
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
-        <div className="flex justify-between items-center w-full">
-          {!isMobile ? (
-            <div className="flex items-center gap-4 mx-4">
+        <div className="flex justify-between gap-10 items-center w-full">
+          {/* Logo section */}
+          <div className="flex-shrink-0">
+            <Link href="/" className="flex items-center">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.5, ease: "easeOut" }}
+                className="pl-2"
+              >
+                <Image 
+                  src="/FullFlowLogo.svg" 
+                  alt="FullFlow Logo" 
+                  width={isMobile ? 85 : 95} 
+                  height={isMobile ? 25 : 28} 
+                  className="object-contain"
+                />
+              </motion.div>
+            </Link>
+          </div>
+
+          {/* Navigation Links - desktop only */}
+          {!isMobile && (
+            <div className="flex items-center justify-center gap-3 mx-6">
               {navItems.map((item) => (
                 <motion.button
                   key={item.name}
                   onClick={() => scrollToSection(item.id)}
-                  className={`text-white no-underline text-sm font-medium relative bg-transparent border-none cursor-pointer px-4 py-2 rounded-md transition-all duration-300 ${
-                    activeSection === item.id ? 'bg-white/10 backdrop-blur-sm' : ''
+                  className={`text-white no-underline text-base font-medium relative bg-transparent border-none cursor-pointer px-3 py-2 rounded-lg transition-all duration-300 ${
+                    activeSection === item.id ? 'bg-white/20 shadow-md' : ''
                   }`}
                   whileHover={{ 
-                    backgroundColor: activeSection === item.id ? 'rgba(255, 255, 255, 0.15)' : 'rgba(255, 255, 255, 0.07)' 
+                    backgroundColor: activeSection === item.id ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)' 
                   }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -160,55 +183,58 @@ const NavBar = () => {
                 </motion.button>
               ))}
             </div>
-          ) : (
-            isOpen ? (
-              <motion.button
-                onClick={() => setIsOpen(false)}
-                className="bg-transparent border-none cursor-pointer p-0 z-10 w-6 h-6 flex items-center justify-center self-end"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-              >
-                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <path d="M18 6L6 18M6 6L18 18" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              </motion.button>
-            ) : (
-              <motion.button
-                onClick={() => setIsOpen(!isOpen)}
-                className="bg-transparent border-none cursor-pointer z-10 p-0 flex flex-col items-center justify-center h-6 w-6"
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-              >
-                <motion.div className="w-5 h-0.5 bg-white my-0.5" />
-                <motion.div className="w-5 h-0.5 bg-white my-0.5" />
-                <motion.div className="w-5 h-0.5 bg-white my-0.5" />
-              </motion.button>
-            )
           )}
 
-          {!isMobile && (
-            <motion.button
-              className="border border-white/30 rounded-full bg-transparent text-white py-1.5 px-4 text-sm font-medium cursor-pointer flex items-center gap-2 ml-4"
-              whileHover={{ 
-                scale: 1.03, 
-                background: 'rgba(255, 255, 255, 0.1)' 
-              }}
-              whileTap={{ scale: 0.95 }}
-              transition={{ duration: 0.2, ease: "easeInOut" }}
-              onClick={() => scrollToSection('pricing')}
-            >
-              Get Started
-              <motion.span
-                initial={{ x: 0 }}
-                whileHover={{ x: 3 }}
+          {/* CTA Button or Mobile Menu Toggle */}
+          <div className="flex-shrink-0">
+            {isMobile ? (
+              isOpen ? (
+                <motion.button
+                  onClick={() => setIsOpen(false)}
+                  className="bg-transparent border-none cursor-pointer p-0 z-10 w-6 h-6 flex items-center justify-center self-end"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                >
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M18 6L6 18M6 6L18 18" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                </motion.button>
+              ) : (
+                <motion.button
+                  onClick={() => setIsOpen(!isOpen)}
+                  className="bg-transparent border-none cursor-pointer z-10 p-0 flex flex-col items-center justify-center h-6 w-6"
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                >
+                  <motion.div className="w-5 h-0.5 bg-white my-0.5" />
+                  <motion.div className="w-5 h-0.5 bg-white my-0.5" />
+                  <motion.div className="w-5 h-0.5 bg-white my-0.5" />
+                </motion.button>
+              )
+            ) : (
+              <motion.button
+                className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-5 text-base font-medium cursor-pointer flex items-center gap-2"
+                whileHover={{ 
+                  scale: 1.03, 
+                  background: 'rgba(255, 255, 255, 0.2)' 
+                }}
+                whileTap={{ scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
+                onClick={() => scrollToSection('pricing')}
               >
-                →
-              </motion.span>
-            </motion.button>
-          )}
+                Get Started
+                <motion.span
+                  initial={{ x: 0 }}
+                  whileHover={{ x: 3 }}
+                  transition={{ duration: 0.2, ease: "easeInOut" }}
+                >
+                  →
+                </motion.span>
+              </motion.button>
+            )}
+          </div>
         </div>
 
         {/* Mobile Menu */}
@@ -222,18 +248,18 @@ const NavBar = () => {
               className="w-full overflow-hidden"
             >
               <motion.div
-                className={`flex flex-col w-full ${isOpen ? 'pt-6 pb-2 border-t border-white/10 mt-2' : 'p-0 border-none mt-0'}`}
+                className={`flex flex-col w-full ${isOpen ? 'pt-8 pb-4 border-t border-white/10 mt-4' : 'p-0 border-none mt-0'}`}
               >
                 {navItems.map((item) => (
                   <motion.button
                     key={item.name}
                     variants={itemVariants}
                     onClick={() => scrollToSection(item.id)}
-                    className={`text-white bg-transparent border-none no-underline py-3 px-4 text-base font-medium text-center relative overflow-hidden cursor-pointer mx-2 rounded-md transition-all duration-300 ${
-                      activeSection === item.id ? 'bg-white/10 backdrop-blur-sm' : ''
+                    className={`text-white bg-transparent border-none no-underline py-3 px-5 text-base font-medium text-center relative overflow-hidden cursor-pointer mx-3 my-1 rounded-lg transition-all duration-300 ${
+                      activeSection === item.id ? 'bg-white/20 shadow-md' : ''
                     }`}
                     whileHover={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
                     }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -243,10 +269,10 @@ const NavBar = () => {
                 ))}
                 <motion.button
                   variants={itemVariants}
-                  className="border border-white/30 rounded-full bg-transparent text-white py-2.5 px-4 text-sm font-medium cursor-pointer flex items-center justify-center gap-2 my-4 mx-auto w-4/5"
+                  className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 my-6 mx-auto w-4/5"
                   whileHover={{ 
                     scale: 1.02, 
-                    background: 'rgba(255, 255, 255, 0.1)' 
+                    background: 'rgba(255, 255, 255, 0.2)' 
                   }}
                   whileTap={{ scale: 0.98 }}
                   transition={{ duration: 0.2, ease: "easeInOut" }}

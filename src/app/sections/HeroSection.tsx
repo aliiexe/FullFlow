@@ -53,7 +53,7 @@ const HeroSection = () => {
               transition={{ delay: 0.3, duration: 0.5 }}
             >
               <div className="h-2 w-2 rounded-full bg-[#7F6DC5] mr-2"></div>
-              <span className="text-sm text-[#7F6DC5] font-medium">Enterprise AI Solutions</span>
+              <span className="text-sm text-[#7F6DC5] font-medium">End To End Tech Solutions</span>
             </motion.div>
             
             <motion.div 
@@ -72,7 +72,7 @@ const HeroSection = () => {
                 </span><br />on tap
               </h1>
               
-              <p className="text-[10px] sm:text-xl text-zinc-300 mt-8 max-w-xl leading-relaxed">
+              <p className="text-[15px] sm:text-xl text-zinc-300 mt-8 max-w-xl leading-relaxed">
                 Only pay for the pieces you need. Modular AI components 
                 for businesses of all sizes.
               </p>
@@ -84,9 +84,9 @@ const HeroSection = () => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.5 }}
             >
-              <Link href="/solutions" >
-               <ShinyButton>Customise your plans</ShinyButton>
-              </Link>
+              <a href="https://calendly.com/kaouter-karboub" target="_blank" rel="noopener noreferrer">
+                <ShinyButton>Schedule a Call</ShinyButton>
+              </a>
             </motion.div>
           </motion.div>
           
