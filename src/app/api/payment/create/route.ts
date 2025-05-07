@@ -43,6 +43,13 @@ interface SubscriptionPlan {
   updated_at: string;
 }
 
+interface ProjectInfos {
+  customerEmail: string;
+  projectKey: string;
+  jiraUrl: string;
+  slackUrl: string;
+}
+
 async function createJiraProject(customerData: {
   customerEmail: string;
   customerName: string;
@@ -137,7 +144,7 @@ async function sendInviteEmail(data: {
 }) {
   try {    
     const jiraUrl = `https://pfa.atlassian.net/jira/software/projects/${data.projectKey}/boards`; 
-    const slackUrl = `https://yourworkspace.slack.com/archives/${data.channelName}`;
+    const slackUrl = `https://slack.com/app_redirect?channel=${data.channelName}`;
     
     console.log('Sending invitation email with details:');
     console.log('- To:', data.customerEmail);
@@ -168,6 +175,33 @@ async function sendInviteEmail(data: {
   } catch (error) {
     console.error('Failed to send invitation email:', error);
     // Log error but don't throw to prevent blocking the payment flow
+  }
+}
+
+async function sendProjectInfo(data: ProjectInfos) {
+  try {
+    console.log('Sending project information with details:');
+    console.log('- Customer Email:', data.customerEmail);
+    console.log('- Project Key:', data.projectKey);
+    console.log('- Jira URL:', data.jiraUrl);
+    console.log('- Slack URL:', data.slackUrl);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/project-infos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error sending project information:', errorData);
+    } else {
+      const responseData = await response.json();
+      console.log('Project information sent successfully:', responseData);
+      return responseData;
+    }
+  } catch (error) {
+    console.error('Failed to send project information:', error);
   }
 }
 
@@ -267,6 +301,13 @@ export async function POST(request: NextRequest) {
         sessionId: session.id
       });
 
+      await sendProjectInfo({
+        customerEmail,
+        projectKey,
+        jiraUrl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
+        slackUrl: `https://slack.com/app_redirect?channel=${channelName}`
+      });
+
       // Send invitation email
       await sendInviteEmail({
         customerEmail,
@@ -274,6 +315,7 @@ export async function POST(request: NextRequest) {
         channelName: channelName,
         projectKey: projectKey
       });
+
     } 
     // Handle one-time payment checkout
     else {
@@ -353,6 +395,13 @@ export async function POST(request: NextRequest) {
         sessionId: session.id
       });
 
+      await sendProjectInfo({
+        customerEmail,
+        projectKey,
+        jiraUrl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
+        slackUrl: `https://slack.com/app_redirect?channel=${channelName}`
+      });
+      
       // Send invitation email
       await sendInviteEmail({
         customerEmail,
@@ -360,6 +409,7 @@ export async function POST(request: NextRequest) {
         channelName: channelName,
         projectKey: projectKey
       });
+
     }
 
     console.log('Customer Full Name:', customerFullName);
