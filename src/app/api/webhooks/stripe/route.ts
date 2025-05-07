@@ -169,7 +169,7 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
     
     const paymentData = {
       email: customerEmail,
-      customer_name: customerName,
+      fullname: customerName,
       amount: amount,
       payment_method: 'Stripe',
       transaction_id: transactionId,
@@ -234,8 +234,7 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
     
     const paymentData = {
       email: customerEmail,
-      customer_name: customerName,
-      amount: amount,
+      fullname: customerName,
       payment_method: 'Stripe',
       transaction_id: transactionId,
       deliverable_ids: deliverableIds

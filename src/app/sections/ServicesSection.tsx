@@ -53,6 +53,7 @@ interface ServiceCardProps {
   details: string[]
   isExpanded: boolean
   toggleExpand: () => void
+  isCore?: boolean
 }
 
 // Map category name to icon
@@ -71,10 +72,10 @@ const getCategoryIcon = (categoryName: string): React.ReactNode => {
   }
 }
 
-function ServiceCard({ title, description, icon, details, isExpanded, toggleExpand }: ServiceCardProps) {
+function ServiceCard({ title, description, icon, details, isExpanded, toggleExpand, isCore = false }: ServiceCardProps) {
   return (
     <motion.div
-      className="backdrop-blur-md rounded-xl p-8 cursor-pointer border border-white/10 transition-all duration-300 bg-white/[0.03] hover:bg-white/[0.06]"
+      className={`backdrop-blur-md rounded-xl p-8 cursor-pointer border ${isCore ? 'border-indigo-500/50 relative overflow-hidden' : 'border-white/10'} transition-all duration-300 ${isCore ? 'bg-indigo-600/10' : 'bg-white/[0.03]'} hover:bg-white/[0.06]`}
       whileHover={{ y: -5 }}
       onClick={toggleExpand}
       transition={{ 
@@ -85,15 +86,27 @@ function ServiceCard({ title, description, icon, details, isExpanded, toggleExpa
         }
       }}
     >
+      {/* Shine effect for AI category */}
+      {isCore && (
+        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/0 via-indigo-600/20 to-indigo-600/0 animate-shine pointer-events-none" />
+      )}
+      
       <div className="flex items-start justify-between mb-5">
-        <div className="p-4 rounded-full bg-white/5">{icon}</div>
-        <motion.div 
-          animate={{ rotate: isExpanded ? 180 : 0 }} 
-          transition={{ duration: 0.3, ease: "easeInOut" }}
-          className="bg-white/5 p-1.5 rounded-full"
-        >
-          <ChevronDown className="text-white w-5 h-5" />
-        </motion.div>
+        <div className={`p-4 rounded-full ${isCore ? 'bg-indigo-600/20' : 'bg-white/5'}`}>{icon}</div>
+        <div className="flex items-center">
+          {isCore && (
+            <span className="mr-3 text-xs bg-indigo-500/50 text-white px-2 py-0.5 rounded-full">
+              Core Expertise
+            </span>
+          )}
+          <motion.div 
+            animate={{ rotate: isExpanded ? 180 : 0 }} 
+            transition={{ duration: 0.3, ease: "easeInOut" }}
+            className={`${isCore ? 'bg-indigo-600/20' : 'bg-white/5'} p-1.5 rounded-full`}
+          >
+            <ChevronDown className="text-white w-5 h-5" />
+          </motion.div>
+        </div>
       </div>
 
       <h3 className="text-2xl font-bold mb-3 text-white">{title}</h3>
@@ -122,7 +135,7 @@ function ServiceCard({ title, description, icon, details, isExpanded, toggleExpa
             <ul className="space-y-3 mt-5 text-gray-300">
               {details.map((detail, index) => (
                 <li key={index} className="flex items-start">
-                  <span className="text-indigo-400 mr-2">•</span>
+                  <span className={`${isCore ? 'text-indigo-400' : 'text-indigo-400'} mr-2`}>•</span>
                   <span>{detail}</span>
                 </li>
               ))}
@@ -276,6 +289,7 @@ export default function Services() {
                 details={service.details}
                 isExpanded={expandedIndex === index}
                 toggleExpand={() => toggleExpand(index)}
+                isCore={service.title === "AI-Enabled Solutions"} // Flag AI solutions as core
               />
             </motion.div>
           ))}

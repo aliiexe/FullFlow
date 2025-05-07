@@ -16,7 +16,7 @@ interface Deliverable {
   service_category_id: string;
   name: string;
   description: string | null;
-  base_price: number | null;
+  price: number | null;
   is_active: boolean;
   complexity_level: string | null;
   created_at: string;
@@ -32,12 +32,12 @@ interface Deliverable {
   };
 }
 
+// Updated interface to match new structure
 interface SubscriptionPlan {
   id: string;
   name: string;
   description: string;
-  monthly_price: number;
-  yearly_price: number;
+  price: number; // Changed from monthly_price/yearly_price
   is_active: boolean;
   created_at: string;
   updated_at: string;
@@ -89,7 +89,6 @@ async function createJiraProject(customerData: {
   }
 }
 
-// Add this function after your createJiraProject function
 async function createSlackChannel(customerData: {
   customerEmail: string;
   customerName: string;
@@ -136,9 +135,8 @@ async function sendInviteEmail(data: {
   channelName: string;
   projectKey: string;
 }) {
-  try {
-    // Construct URLs based on the keys
-    const jiraUrl = `https://yourcompany.atlassian.net/browse/${data.projectKey}`;
+  try {    
+    const jiraUrl = `https://pfa.atlassian.net/jira/software/projects/${data.projectKey}/boards`; 
     const slackUrl = `https://yourworkspace.slack.com/archives/${data.channelName}`;
     
     console.log('Sending invitation email with details:');
@@ -217,10 +215,10 @@ export async function POST(request: NextRequest) {
         description: selectedPlan.description || `${selectedPlan.name} subscription`,
       });
       
-      // Create a price for the subscription
+      // Create a price for the subscription - using price instead of monthly_price
       const price = await stripe.prices.create({
         product: product.id,
-        unit_amount: selectedPlan.monthly_price * 100, // Convert to cents
+        unit_amount: selectedPlan.price * 100, // Convert to cents
         currency: 'usd',
         recurring: {
           interval: 'month',
@@ -244,9 +242,9 @@ export async function POST(request: NextRequest) {
           customerFullName: customerFullName,
           subscriptionId: subscriptionId,
           isSubscription: 'true',
-          customerEmail: customerEmail, // Add this line for redundancy
-          planName: selectedPlan.name, // Optional: Add this for more context
-          planPrice: selectedPlan.monthly_price.toString(), // Optional: Add this for more context
+          customerEmail: customerEmail,
+          planName: selectedPlan.name,
+          planPrice: selectedPlan.price.toString(), // Updated from monthly_price
         },
       });
 
@@ -303,7 +301,7 @@ export async function POST(request: NextRequest) {
           throw new Error(`Deliverable with ID ${serviceId} not found`);
         }
         
-        const price = (deliverable.base_price || 1500) * 100; // Convert to cents, use 1500 as fallback
+        const price = (deliverable.price || 1500) * 100; // Convert to cents, use 1500 as fallback
         totalPrice += price;
         
         return {
