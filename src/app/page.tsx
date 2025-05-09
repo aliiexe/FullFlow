@@ -10,6 +10,7 @@ import FaqSection from "./sections/FaqSection";
 // import NavBar from "./ui/AboubakrNavBar";
 import NavBar from "./ui/NavBar";
 import TeamCompositionSection from "./sections/TeamCompositionSection";
+import ProofElementsSection from "./sections/ProofElementsSection";
 
 export default function Home() {
   return (
@@ -23,6 +24,7 @@ export default function Home() {
       <ServicesSection />
       <PricingBuilder />
       <ProcessSection />
+      <ProofElementsSection />
       <FaqSection/>
       <SlidingFooter/>
     </main>

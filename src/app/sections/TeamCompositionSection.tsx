@@ -74,11 +74,11 @@ const TeamCompositionSection = () => {
                 border: '1px solid rgba(255, 255, 255, 0.1)',
               }}
             >
-              <div className="absolute top-0 right-0 w-28 h-28 rounded-bl-[56px] opacity-30"
+              <div className="absolute top-0 right-0 w-28 h-28 rounded-bl-[56px] opacity-20"
                    style={{
                      background: `linear-gradient(135deg, 
                        ${index === 0 ? '#FF0080' : index === 1 ? '#F352F0' : index === 2 ? '#FF7600' : '#FFCC00'}, 
-                       trasparent)`,
+                       transparent)`,
                    }} />
               
               <div className="p-8 md:p-10 h-full flex flex-col">

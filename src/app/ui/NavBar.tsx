@@ -55,7 +55,7 @@ const NavBar = () => {
     };
   }, []);
 
-  const isMobile = windowWidth < 768;
+  const isMobile = windowWidth <= 768;
 
   // Navigation items with their section IDs
   const navItems = [
