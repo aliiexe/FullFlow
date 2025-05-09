@@ -155,7 +155,9 @@ export default function FaqSection() {
           <p className="text-slate-300 mb-6">
             Still have questions? We're here to help.
           </p>
-           <ShinyButton>Contact Support</ShinyButton>
+           <a href='mailto:kaouter.karboub@gmail.com' rel="noopener noreferrer">
+             <ShinyButton>Contact Support</ShinyButton>
+           </a>
         </motion.div>
       </div>
     </section>
