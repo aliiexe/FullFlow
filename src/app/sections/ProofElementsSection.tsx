@@ -113,6 +113,7 @@ const ProofElementsSection = () => {
             href="/documents/portfolio.pdf"
             className="inline-block mt-6 px-8 py-3 rounded-full bg-gradient-to-r from-primary to-primary/50 hover:opacity-90 text-white font-medium transition-all"
           >
+            View Recent Work
           </Link>
         </motion.div>
 
