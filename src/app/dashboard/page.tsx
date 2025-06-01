@@ -3,11 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import {
   Loader2,
-  CreditCard,
   FileText,
   AlertCircle,
   ExternalLink,
-  Calendar,
   Check,
   CreditCard as CardIcon,
 } from "lucide-react";
@@ -16,37 +14,28 @@ import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-// Add this guard for the process.env polyfill
+// Polyfill for process.env in the browser (only if needed)
 if (typeof window !== "undefined" && !window.process) {
   window.process = {
     env: {
-      CLERK_TELEMETRY_DEBUG: false,
-      CLERK_TELEMETRY_DISABLED: true,
-      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
-      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true,
+      NODE_ENV: process.env.NODE_ENV || "development",
+      CLERK_TELEMETRY_DEBUG: "false",
+      CLERK_TELEMETRY_DISABLED: "true",
+      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
+      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true",
     },
-  };
+  } as any;
 }
 
 // Define interfaces based on your API schema
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  base_id: string | null;
-  order_position: number | null;
-  created_at: string;
-  updated_at: string;
-}
-
 interface Deliverable {
   id: string;
-  service_category_id: string;
+  service_category_id?: string;
   name: string;
   description: string | null;
   price: number | null;
-  is_active: boolean;
-  complexity_level: string | null;
+  is_active?: boolean;
+  complexity_level?: string | null;
   created_at: string;
   updated_at: string;
   service_category?: {
@@ -64,7 +53,7 @@ interface SubscriptionPlan {
   id: string;
   name: string;
   description: string;
-  price: number;
+  price: number; // <-- we use `price`, not `amount`
   is_active: boolean;
   includedUsers?: number;
   status?: string;
@@ -99,26 +88,24 @@ interface ProjectInfo {
 }
 
 export default function Dashboard() {
-  const [projectDetails, setProjectDetails] = useState<ProjectInfo | null>(
-    null
-  );
+  const [projectDetails, setProjectDetails] = useState<ProjectInfo | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState("subscription");
+  const [activeTab, setActiveTab] = useState<"subscription" | "project" | "billing">(
+    "subscription"
+  );
   const router = useRouter();
 
-  // Use Clerk's auth hook directly
   const { userId, isLoaded, isSignedIn } = useAuth();
 
-  // Log auth state for debugging
+  // Log auth state (optional, for debugging)
   useEffect(() => {
     console.log("Auth state:", { userId, isLoaded, isSignedIn });
   }, [userId, isLoaded, isSignedIn]);
 
-  // Handle authentication check and routing
+  // If auth is loaded and user is not signed in, redirect
   useEffect(() => {
     if (isLoaded && !isSignedIn) {
-      console.log("User not signed in, redirecting to sign-in page");
       router.push("/sign-in?redirect=/dashboard");
     }
   }, [isLoaded, isSignedIn, router]);
@@ -131,31 +118,23 @@ export default function Dashboard() {
       setLoading(true);
       console.log("Fetching project data for user:", userId);
 
-      // Use API URL if set, otherwise use fallback
-      const apiUrl =
-        process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
 
-      // APPROACH: Use try-catch for each request and provide fallback data
-
-      // Get user's project data with fallback
-      let data;
+      // 1. Fetch the user's “project” resource
+      let data: any;
       try {
         const response = await fetch(`${apiUrl}/api/projects?userId=${userId}`);
-
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
-
         const contentType = response.headers.get("content-type");
-        if (!contentType || !contentType.includes("application/json")) {
+        if (!contentType?.includes("application/json")) {
           throw new Error("Invalid response format, expected JSON");
         }
-
         data = await response.json();
         console.log("Project data fetched:", data);
-      } catch (error) {
-        console.warn("Using mock project data:", error);
-        // Fallback mock data
+      } catch (err) {
+        console.warn("Using mock project data:", err);
         data = {
           id: "project_mock",
           name: "Demo Project",
@@ -168,20 +147,18 @@ export default function Dashboard() {
         };
       }
 
-      // Get subscription details with fallback
-      let subscriptionData;
+      // 2. Fetch subscription details
+      let subscriptionData: SubscriptionPlan;
       try {
         const subscriptionResponse = await fetch(
           `${apiUrl}/api/subscriptions/${data.subscriptionId || "default"}`
         );
-
-        if (subscriptionResponse.ok) {
-          subscriptionData = await subscriptionResponse.json();
-        } else {
+        if (!subscriptionResponse.ok) {
           throw new Error("Subscription data fetch failed");
         }
-      } catch (error) {
-        console.warn("Using mock subscription data:", error);
+        subscriptionData = await subscriptionResponse.json();
+      } catch (err) {
+        console.warn("Using mock subscription data:", err);
         subscriptionData = {
           id: data.subscriptionId || "sub_default",
           name: "Professional",
@@ -198,20 +175,18 @@ export default function Dashboard() {
         };
       }
 
-      // Get payment method with fallback
-      let paymentData;
+      // 3. Fetch payment method
+      let paymentData: PaymentMethod;
       try {
         const paymentResponse = await fetch(
-          `${apiUrl}/api/payment-methods?userId=${userId}` // Fixed: use userId directly
+          `${apiUrl}/api/payment-methods?userId=${userId}`
         );
-
-        if (paymentResponse.ok) {
-          paymentData = await paymentResponse.json();
-        } else {
+        if (!paymentResponse.ok) {
           throw new Error("Payment data fetch failed");
         }
-      } catch (error) {
-        console.warn("Using mock payment data:", error);
+        paymentData = await paymentResponse.json();
+      } catch (err) {
+        console.warn("Using mock payment data:", err);
         paymentData = {
           lastFour: "4242",
           type: "visa",
@@ -219,20 +194,18 @@ export default function Dashboard() {
         };
       }
 
-      // Get deliverables with fallback
-      let deliverablesData;
+      // 4. Fetch deliverables
+      let deliverablesData: Deliverable[];
       try {
         const deliverablesResponse = await fetch(
           `${apiUrl}/api/project-deliverables?projectId=${data.id}`
         );
-
-        if (deliverablesResponse.ok) {
-          deliverablesData = await deliverablesResponse.json();
-        } else {
+        if (!deliverablesResponse.ok) {
           throw new Error("Deliverables data fetch failed");
         }
-      } catch (error) {
-        console.warn("Using mock deliverables data:", error);
+        deliverablesData = await deliverablesResponse.json();
+      } catch (err) {
+        console.warn("Using mock deliverables data:", err);
         deliverablesData = [
           {
             id: "del_001",
@@ -255,20 +228,18 @@ export default function Dashboard() {
         ];
       }
 
-      // Get invoices with fallback
-      let invoicesData;
+      // 5. Fetch invoices
+      let invoicesData: Invoice[];
       try {
         const invoicesResponse = await fetch(
           `${apiUrl}/api/invoices?projectId=${data.id}`
         );
-
-        if (invoicesResponse.ok) {
-          invoicesData = await invoicesResponse.json();
-        } else {
+        if (!invoicesResponse.ok) {
           throw new Error("Invoices data fetch failed");
         }
-      } catch (error) {
-        console.warn("Using mock invoices data:", error);
+        invoicesData = await invoicesResponse.json();
+      } catch (err) {
+        console.warn("Using mock invoices data:", err);
         invoicesData = [
           {
             id: "INV-1001",
@@ -283,7 +254,7 @@ export default function Dashboard() {
         ];
       }
 
-      // Combine all data into projectDetails object
+      // Combine into our ProjectInfo shape
       const projectInfo: ProjectInfo = {
         id: data.id || "proj_123456",
         name: data.name || "Website Redesign",
@@ -311,21 +282,22 @@ export default function Dashboard() {
     }
   }, [userId, isLoaded, isSignedIn]);
 
-  // Fetch data when authenticated
+  // Kick off data fetch
   useEffect(() => {
-    if (isSignedIn && userId) {
+    if (isLoaded && isSignedIn && userId) {
       fetchProjectData();
     }
-  }, [fetchProjectData, isSignedIn, userId]);
+  }, [fetchProjectData, isLoaded, isSignedIn, userId]);
 
-  // Add missing handler for subscription cancellation
+  // Handle subscription cancellation
   const handleCancelSubscription = async () => {
     if (!projectDetails) return;
 
-    if (window.confirm("Are you sure you want to cancel your subscription?")) {
+    if (
+      window.confirm("Are you sure you want to cancel your subscription?")
+    ) {
       try {
         setLoading(true);
-
         const apiUrl =
           process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
 
@@ -353,9 +325,8 @@ export default function Dashboard() {
           } else {
             throw new Error("Failed to cancel subscription");
           }
-        } catch (error) {
-          console.warn("Using mock subscription cancellation:", error);
-          // Mock the cancellation locally
+        } catch (err) {
+          console.warn("Using mock subscription cancellation:", err);
           setProjectDetails({
             ...projectDetails,
             subscription: {
@@ -375,8 +346,8 @@ export default function Dashboard() {
     }
   };
 
-  // Simplified loading state
-  if (!isLoaded || (isSignedIn && loading)) {
+  // Show loader while auth isn't resolved OR while redirecting OR while fetching data
+  if (!isLoaded || (!isSignedIn && isLoaded) || (isSignedIn && loading)) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#0c0c14]">
         <Loader2 className="w-10 h-10 text-indigo-500 animate-spin" />
@@ -385,6 +356,7 @@ export default function Dashboard() {
     );
   }
 
+  // If there's an error, show an error screen
   if (error) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#0c0c14]">
@@ -401,7 +373,7 @@ export default function Dashboard() {
     );
   }
 
-  // If we have no project data but are signed in, show "no projects" message
+  // If we have no project data but are signed in, show a “no project found” message
   if (!projectDetails && isSignedIn) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#0c0c14]">
@@ -420,6 +392,7 @@ export default function Dashboard() {
     );
   }
 
+  // Main dashboard
   return (
     <div className="min-h-screen bg-[#0c0c14]">
       <header className="border-b border-white/10 backdrop-blur-md bg-black/20">
@@ -469,7 +442,7 @@ export default function Dashboard() {
           </button>
         </div>
 
-        {activeTab === "subscription" && (
+        {activeTab === "subscription" && projectDetails && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -479,13 +452,11 @@ export default function Dashboard() {
               {/* Your Plan Card */}
               <div className="md:col-span-2 backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                 <div className="p-6 border-b border-white/10">
-                  <h2 className="text-xl font-semibold text-white">
-                    Your Plan
-                  </h2>
+                  <h2 className="text-xl font-semibold text-white">Your Plan</h2>
                   <p className="text-sm text-gray-400">
                     Renews{" "}
                     {new Date(
-                      projectDetails.subscription.currentPeriodEnd
+                      projectDetails.subscription.currentPeriodEnd!
                     ).toLocaleDateString()}
                   </p>
                 </div>
@@ -497,14 +468,16 @@ export default function Dashboard() {
                       </h3>
                       <div className="flex items-baseline mt-1">
                         <span className="text-2xl font-bold text-white">
-                          ${projectDetails.subscription.amount}
+                          ${projectDetails.subscription.price.toFixed(2)}
                         </span>
                         <span className="ml-1 text-gray-400">/month</span>
                       </div>
-                      <p className="text-sm text-gray-400 mt-1">
-                        {projectDetails.subscription.includedUsers} included
-                        users
-                      </p>
+                      {projectDetails.subscription.includedUsers !== undefined && (
+                        <p className="text-sm text-gray-400 mt-1">
+                          {projectDetails.subscription.includedUsers} included
+                          users
+                        </p>
+                      )}
                     </div>
 
                     <button
@@ -593,7 +566,7 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {activeTab === "project" && (
+        {activeTab === "project" && projectDetails && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -663,38 +636,36 @@ export default function Dashboard() {
                 </h2>
               </div>
               <div className="px-6">
-                {projectDetails.deliverables.map(
-                  (deliverable: any, index: number) => (
-                    <div
-                      key={deliverable.id}
-                      className={`py-4 ${
-                        index !== projectDetails.deliverables.length - 1
-                          ? "border-b border-white/10"
-                          : ""
-                      }`}
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="text-indigo-400 font-medium">
-                            {deliverable.name}
-                          </h3>
-                          <p className="text-sm text-gray-400 mt-1">
-                            {deliverable.description}
-                          </p>
-                        </div>
-                        <div className="text-white font-semibold">
-                          ${deliverable.price.toLocaleString()}
-                        </div>
+                {projectDetails.deliverables.map((deliverable, index) => (
+                  <div
+                    key={deliverable.id}
+                    className={`py-4 ${
+                      index !== projectDetails.deliverables.length - 1
+                        ? "border-b border-white/10"
+                        : ""
+                    }`}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-indigo-400 font-medium">
+                          {deliverable.name}
+                        </h3>
+                        <p className="text-sm text-gray-400 mt-1">
+                          {deliverable.description}
+                        </p>
+                      </div>
+                      <div className="text-white font-semibold">
+                        ${deliverable.price?.toLocaleString()}
                       </div>
                     </div>
-                  )
-                )}
+                  </div>
+                ))}
               </div>
             </div>
           </motion.div>
         )}
 
-        {activeTab === "billing" && (
+        {activeTab === "billing" && projectDetails && (
           <motion.div
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
@@ -722,7 +693,7 @@ export default function Dashboard() {
                     </tr>
                   </thead>
                   <tbody>
-                    {projectDetails.invoices.map((invoice: any) => (
+                    {projectDetails.invoices.map((invoice) => (
                       <tr
                         key={invoice.id}
                         className="border-b border-white/5 hover:bg-white/[0.02]"

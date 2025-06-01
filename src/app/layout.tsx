@@ -22,10 +22,11 @@ const globalPolyfill = `
     if (typeof window !== 'undefined' && !window.process) {
       window.process = { 
         env: {
-          CLERK_TELEMETRY_DEBUG: false,
-          CLERK_TELEMETRY_DISABLED: true,
-          NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
-          NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true
+          NODE_ENV: "${process.env.NODE_ENV || "development"}",
+          CLERK_TELEMETRY_DEBUG: "false",
+          CLERK_TELEMETRY_DISABLED: "true",
+          NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
+          NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true" 
         } 
       };
     }
@@ -63,16 +64,15 @@ export default function RootLayout({
       >
         <html lang="en">
           <head>
-            {/* Keep the original script as a backup */}
             <Script id="clerk-env-polyfill" strategy="beforeInteractive">
               {`
                 if (typeof window !== 'undefined' && !window.process) {
                   window.process = { 
                     env: {
-                      CLERK_TELEMETRY_DEBUG: false,
-                      CLERK_TELEMETRY_DISABLED: true,
-                      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
-                      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true
+                      CLERK_TELEMETRY_DEBUG: "false",
+                      CLERK_TELEMETRY_DISABLED: "true",
+                      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
+                      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true"
                     } 
                   };
                 }
