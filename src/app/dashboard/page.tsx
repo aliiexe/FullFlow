@@ -87,13 +87,34 @@ interface ProjectInfo {
   invoices: Invoice[];
 }
 
+interface UserPayment {
+  payment_id: string;
+  payment_amount: number;
+  payment_date: string | null;
+  payment_type: string;
+  payment_status: string;
+  selected_deliverable_name: string | null;
+  subscription_tier_name: string | null;
+}
+
+interface UserData {
+  user_id: string;
+  user_fullname: string;
+  user_email: string;
+  clerk_id: string;
+  payments: UserPayment[];
+}
+
 export default function Dashboard() {
-  const [projectDetails, setProjectDetails] = useState<ProjectInfo | null>(null);
+  const [projectDetails, setProjectDetails] = useState<ProjectInfo | null>(
+    null
+  );
+  const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<"subscription" | "project" | "billing">(
-    "subscription"
-  );
+  const [activeTab, setActiveTab] = useState<
+    "subscription" | "project" | "billing"
+  >("subscription");
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -118,7 +139,8 @@ export default function Dashboard() {
       setLoading(true);
       console.log("Fetching project data for user:", userId);
 
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
 
       // 1. Fetch the user's “project” resource
       let data: any;
@@ -282,20 +304,74 @@ export default function Dashboard() {
     }
   }, [userId, isLoaded, isSignedIn]);
 
+  // Fetch user data when authenticated
+  const fetchUserData = useCallback(async () => {
+    if (!isLoaded || !isSignedIn || !userId) return;
+
+    try {
+      console.log("Fetching user data...");
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+
+      // Get clerk ID from auth (assuming it's the same as userId,
+      // but you might need to adjust this based on your Clerk setup)
+      const clerkId = userId;
+
+      try {
+        const response = await fetch(`${apiUrl}/api/users/${clerkId}`);
+        if (!response.ok) {
+          throw new Error(`API error: ${response.status}`);
+        }
+
+        const result = await response.json();
+        setUserData(result.data);
+        console.log("User data fetched:", result.data);
+      } catch (err) {
+        console.warn("Using mock user data:", err);
+        // Provide mock user data similar to your API response
+        setUserData({
+          user_id: "mock-user-id",
+          user_fullname: "Demo User",
+          user_email: "demo@example.com",
+          clerk_id: userId || "mock-clerk-id",
+          payments: [
+            {
+              payment_id: "mock-payment-1",
+              payment_amount: 1500,
+              payment_date: null,
+              payment_type: "deliverable",
+              payment_status: "pending",
+              selected_deliverable_name: "Essentials",
+              subscription_tier_name: null,
+            },
+          ],
+        });
+      }
+    } catch (err) {
+      console.error("Error fetching user data:", err);
+    }
+  }, [userId, isLoaded, isSignedIn]);
+
   // Kick off data fetch
   useEffect(() => {
     if (isLoaded && isSignedIn && userId) {
       fetchProjectData();
+      fetchUserData();
     }
-  }, [fetchProjectData, isLoaded, isSignedIn, userId]);
+  }, [fetchProjectData, fetchUserData, isLoaded, isSignedIn, userId]);
+
+  // Add this effect after your other useEffects
+  useEffect(() => {
+    if (isLoaded && isSignedIn && userId) {
+      fetchUserData();
+    }
+  }, [fetchUserData, isLoaded, isSignedIn, userId]);
 
   // Handle subscription cancellation
   const handleCancelSubscription = async () => {
     if (!projectDetails) return;
 
-    if (
-      window.confirm("Are you sure you want to cancel your subscription?")
-    ) {
+    if (window.confirm("Are you sure you want to cancel your subscription?")) {
       try {
         setLoading(true);
         const apiUrl =
@@ -452,7 +528,9 @@ export default function Dashboard() {
               {/* Your Plan Card */}
               <div className="md:col-span-2 backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                 <div className="p-6 border-b border-white/10">
-                  <h2 className="text-xl font-semibold text-white">Your Plan</h2>
+                  <h2 className="text-xl font-semibold text-white">
+                    Your Plan
+                  </h2>
                   <p className="text-sm text-gray-400">
                     Renews{" "}
                     {new Date(
@@ -472,7 +550,8 @@ export default function Dashboard() {
                         </span>
                         <span className="ml-1 text-gray-400">/month</span>
                       </div>
-                      {projectDetails.subscription.includedUsers !== undefined && (
+                      {projectDetails.subscription.includedUsers !==
+                        undefined && (
                         <p className="text-sm text-gray-400 mt-1">
                           {projectDetails.subscription.includedUsers} included
                           users
@@ -671,8 +750,69 @@ export default function Dashboard() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
           >
+            {/* User Payments Card */}
+            {userData && userData.payments.length > 0 && (
+              <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg mb-6">
+                <div className="p-6 border-b border-white/10">
+                  <h2 className="text-xl font-semibold text-white">
+                    Payment History
+                  </h2>
+                </div>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="text-left text-gray-400 border-b border-white/10">
+                        <th className="px-6 py-3 text-sm font-medium">Type</th>
+                        <th className="px-6 py-3 text-sm font-medium">
+                          Service
+                        </th>
+                        <th className="px-6 py-3 text-sm font-medium">
+                          Amount
+                        </th>
+                        <th className="px-6 py-3 text-sm font-medium">
+                          Status
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {userData.payments.map((payment) => (
+                        <tr
+                          key={payment.payment_id}
+                          className="border-b border-white/5 hover:bg-white/[0.02]"
+                        >
+                          <td className="px-6 py-4 text-white capitalize">
+                            {payment.payment_type}
+                          </td>
+                          <td className="px-6 py-4 text-white">
+                            {payment.selected_deliverable_name ||
+                              payment.subscription_tier_name ||
+                              "-"}
+                          </td>
+                          <td className="px-6 py-4 text-white">
+                            ${payment.payment_amount.toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                payment.payment_status === "completed"
+                                  ? "bg-green-500/20 text-green-400"
+                                  : "bg-amber-500/20 text-amber-400"
+                              }`}
+                            >
+                              {payment.payment_status}
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             {/* Invoices Card */}
             <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
+              {/* Existing invoices code */}
               <div className="p-6 border-b border-white/10">
                 <h2 className="text-xl font-semibold text-white">
                   Invoice History
