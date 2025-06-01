@@ -22,6 +22,7 @@ const globalPolyfill = `
     if (typeof window !== 'undefined' && !window.process) {
       window.process = { 
         env: {
+          NODE_ENV: "${process.env.NODE_ENV || "development"}",
           CLERK_TELEMETRY_DEBUG: "false",
           CLERK_TELEMETRY_DISABLED: "true",
           NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
