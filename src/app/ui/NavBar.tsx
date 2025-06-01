@@ -43,7 +43,7 @@ const NavBar = () => {
 
     // Add scroll event listener to track active section
     const handleScroll = () => {
-      const sections = ["hero", "services", "pricing", "process", "faq"];
+      const sections = ["hero", "services", "pricing", "our-projects", "process", "faq"];
       const scrollPosition = window.scrollY + 100; // Offset for better detection
 
       // Find the current section based on scroll position

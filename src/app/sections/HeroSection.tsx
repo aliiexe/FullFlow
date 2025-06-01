@@ -17,6 +17,8 @@ const HeroSection = () => {
     const interval = setInterval(() => {
       setCurrentWordIndex(prevIndex => (prevIndex + 1) % rotatingWords.length);
     }, 2000);
+    console.log('CLERK_TELEMETRY_DEBUG:', process.env.CLERK_TELEMETRY_DEBUG);
+    console.log('CLERK_TELEMETRY_DISABLED:', process.env.CLERK_TELEMETRY_DISABLED);
     
     return () => clearInterval(interval);
   }, []);
