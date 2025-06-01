@@ -76,10 +76,10 @@ export default function SuccessPage() {
           </Link>
 
           <Link
-            href={`/dashboard?email=${encodeURIComponent(sessionDetails?.customer_email || "")}`}
-            className="flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors mt-4"
+            href="/dashboard"
+            className="flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
           >
-            View Your Project Dashboard
+            Go to Dashboard
             <ArrowRight className="w-4 h-4 ml-2" />
           </Link>
         </div>
