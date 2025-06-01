@@ -94,7 +94,7 @@ const SlidingFooter: FC = () => {
                 <span className="footer-company-name">Full Flow</span>
               </div>
               <p className="footer-company-desc">
-                AI-powered automation for modern workflows. Streamline your business processes with intelligent solutions.
+                AI-powered solutions for modern workflows. Streamline your business processes with intelligent solutions.
               </p>
               <div className="footer-social">
                 <a href="https://twitter.com" target="_blank" rel="noopener noreferrer" aria-label="Twitter">

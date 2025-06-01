@@ -137,47 +137,47 @@ async function createSlackChannel(customerData: {
   }
 }
 
-async function sendInviteEmail(data: {
-  customerEmail: string;
-  customerName: string;
-  channelName: string;
-  projectKey: string;
-}) {
-  try {    
-    const jiraUrl = `https://pfa.atlassian.net/jira/software/projects/${data.projectKey}/boards`; 
-    const slackUrl = `https://slack.com/app_redirect?channel=${data.channelName}`;
+// async function sendInviteEmail(data: {
+//   customerEmail: string;
+//   customerName: string;
+//   channelName: string;
+//   projectKey: string;
+// }) {
+//   try {    
+//     const jiraUrl = `https://pfa.atlassian.net/jira/software/projects/${data.projectKey}/boards`; 
+//     const slackUrl = `https://slack.com/app_redirect?channel=${data.channelName}`;
     
-    console.log('Sending invitation email with details:');
-    console.log('- To:', data.customerEmail);
-    console.log('- Channel:', data.channelName);
-    console.log('- Project:', data.projectKey);
+//     console.log('Sending invitation email with details:');
+//     console.log('- To:', data.customerEmail);
+//     console.log('- Channel:', data.channelName);
+//     console.log('- Project:', data.projectKey);
     
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sendInviteEmail`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        to: data.customerEmail,
-        customerName: data.customerName,
-        channelName: data.channelName,
-        jiraUrl: jiraUrl,
-        slackUrl: slackUrl
-      }),
-    });
+//     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sendInviteEmail`, {
+//       method: 'POST',
+//       headers: { 'Content-Type': 'application/json' },
+//       body: JSON.stringify({
+//         to: data.customerEmail,
+//         customerName: data.customerName,
+//         channelName: data.channelName,
+//         jiraUrl: jiraUrl,
+//         slackUrl: slackUrl
+//       }),
+//     });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error sending invitation email:', errorData);
-      // We'll log the error but continue with checkout to not block payment flow
-    } else {
-      const data = await response.json();
-      console.log('Invitation email sent successfully:', data);
-      return data;
-    }
-  } catch (error) {
-    console.error('Failed to send invitation email:', error);
-    // Log error but don't throw to prevent blocking the payment flow
-  }
-}
+//     if (!response.ok) {
+//       const errorData = await response.text();
+//       console.error('Error sending invitation email:', errorData);
+//       // We'll log the error but continue with checkout to not block payment flow
+//     } else {
+//       const data = await response.json();
+//       console.log('Invitation email sent successfully:', data);
+//       return data;
+//     }
+//   } catch (error) {
+//     console.error('Failed to send invitation email:', error);
+//     // Log error but don't throw to prevent blocking the payment flow
+//   }
+// }
 
 async function sendProjectInfo(data: ProjectInfos) {
   try {
@@ -313,12 +313,12 @@ export async function POST(request: NextRequest) {
       });
 
       // Send invitation email
-      await sendInviteEmail({
-        customerEmail,
-        customerName: customerFullName || '',
-        channelName: channelName,
-        projectKey: projectKey
-      });
+      // await sendInviteEmail({
+      //   customerEmail,
+      //   customerName: customerFullName || '',
+      //   channelName: channelName,
+      //   projectKey: projectKey
+      // });
 
     } 
     // Handle one-time payment checkout
@@ -410,12 +410,12 @@ export async function POST(request: NextRequest) {
       });
 
       // Send invitation email
-      await sendInviteEmail({
-        customerEmail,
-        customerName: customerFullName || '',
-        channelName: channelName,
-        projectKey: projectKey
-      });
+      // await sendInviteEmail({
+      //   customerEmail,
+      //   customerName: customerFullName || '',
+      //   channelName: channelName,
+      //   projectKey: projectKey
+      // });
 
     }
 

@@ -1,41 +1,58 @@
-'use client';
-import { motion, AnimatePresence } from 'framer-motion';
-import { useState, useEffect } from 'react';
-import AnimatedText from '../animations/TextHover';
-import Image from 'next/image';
-import Link from 'next/link';
+"use client";
+import { motion, AnimatePresence } from "framer-motion";
+import { useState, useEffect } from "react";
+import Image from "next/image";
+import Link from "next/link";
+
+const AnimatedText = ({ text }: { text: string }) => {
+  return (
+    <span>
+      {text.split("").map((char, idx) => (
+        <span
+          key={idx}
+          className="animated-char"
+          style={
+            char === " " ? { display: "inline-block", width: "0.5em" } : {}
+          }
+        >
+          {char === " " ? "\u00A0" : char}
+        </span>
+      ))}
+    </span>
+  );
+};
 
 const NavBar = () => {
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
-  const [activeSection, setActiveSection] = useState('');
-  
+  const [activeSection, setActiveSection] = useState("");
+
   useEffect(() => {
     setMounted(true);
     setWindowWidth(window.innerWidth);
-    
+
     const handleResize = () => {
       setWindowWidth(window.innerWidth);
       if (window.innerWidth > 768) {
         setIsOpen(false);
       }
     };
-    
-    window.addEventListener('resize', handleResize);
-    
+
+    window.addEventListener("resize", handleResize);
+
     // Add scroll event listener to track active section
     const handleScroll = () => {
-      const sections = ['hero', 'services', 'pricing', 'process', 'faq'];
+      const sections = ["hero", "services", "pricing", "process", "faq"];
       const scrollPosition = window.scrollY + 100; // Offset for better detection
-      
+
       // Find the current section based on scroll position
       for (const section of sections) {
         const element = document.getElementById(section);
         if (element) {
           const { offsetTop, offsetHeight } = element;
           if (
-            scrollPosition >= offsetTop && 
+            scrollPosition >= offsetTop &&
             scrollPosition < offsetTop + offsetHeight
           ) {
             setActiveSection(section);
@@ -44,14 +61,14 @@ const NavBar = () => {
         }
       }
     };
-    
-    window.addEventListener('scroll', handleScroll);
+
+    window.addEventListener("scroll", handleScroll);
     // Initial check for active section
     handleScroll();
-    
+
     return () => {
-      window.removeEventListener('resize', handleResize);
-      window.removeEventListener('scroll', handleScroll);
+      window.removeEventListener("resize", handleResize);
+      window.removeEventListener("scroll", handleScroll);
     };
   }, []);
 
@@ -59,11 +76,12 @@ const NavBar = () => {
 
   // Navigation items with their section IDs
   const navItems = [
-    { name: 'About', id: 'hero' },
-    { name: 'Services', id: 'services' },
-    { name: 'Plans', id: 'pricing' },
-    { name: 'Process', id: 'process' },
-    { name: 'FAQ', id: 'faq' }
+    { name: "About", id: "hero" },
+    { name: "Services", id: "services" },
+    { name: "Plans", id: "pricing" },
+    { name: "Process", id: "process" },
+    { name: "Our projects", id: "our-projects" },
+    { name: "FAQ", id: "faq" },
   ];
 
   // Handle smooth scrolling
@@ -72,11 +90,11 @@ const NavBar = () => {
     if (element) {
       window.scrollTo({
         top: element.offsetTop - 80, // Offset for navbar height
-        behavior: 'smooth'
+        behavior: "smooth",
       });
-      
+
       setActiveSection(sectionId);
-      
+
       // Close mobile menu
       if (isMobile) {
         setIsOpen(false);
@@ -93,33 +111,33 @@ const NavBar = () => {
         staggerDirection: -1,
         when: "afterChildren",
         duration: 0.3,
-        ease: "easeInOut"
-      }
+        ease: "easeInOut",
+      },
     },
     open: {
       opacity: 1,
-      height: 'auto',
+      height: "auto",
       transition: {
         staggerChildren: 0.1,
         delayChildren: 0.2,
         when: "beforeChildren",
         duration: 0.3,
-        ease: "easeInOut"
-      }
-    }
+        ease: "easeInOut",
+      },
+    },
   };
 
   const itemVariants = {
-    closed: { 
+    closed: {
       opacity: 0,
       y: 20,
-      transition: { duration: 0.2, ease: "easeInOut" }
+      transition: { duration: 0.2, ease: "easeInOut" },
     },
-    open: { 
+    open: {
       opacity: 1,
       y: 0,
-      transition: { duration: 0.2, ease: "easeInOut" }
-    }
+      transition: { duration: 0.2, ease: "easeInOut" },
+    },
   };
 
   return (
@@ -130,16 +148,23 @@ const NavBar = () => {
       className="fixed top-4 left-0 right-0 z-50 flex justify-center w-full px-4"
     >
       <motion.div
-        className={`flex items-center justify-between ${isMobile ? 'flex-col w-full' : 'flex-row w-auto'} max-w-full overflow-hidden`}
+        className={`flex items-center justify-between ${
+          isMobile ? "flex-col w-full" : "flex-row w-auto"
+        } max-w-full overflow-hidden`}
         style={{
-          borderRadius: isMobile && isOpen ? '16px' : '20px',
-          background: 'linear-gradient(142deg, rgba(255, 255, 255, 0.15) -61.21%, rgba(255, 255, 255, 0.05) 96.65%)',
-          boxShadow: '0px 4px 24px -1px rgba(0, 0, 0, 0.20)',
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          padding: isMobile ? '12px 16px' : '10px 20px',
+          borderRadius: isMobile && isOpen ? "16px" : "20px",
+          background:
+            "linear-gradient(142deg, rgba(255, 255, 255, 0.15) -61.21%, rgba(255, 255, 255, 0.05) 96.65%)",
+          boxShadow: "0px 4px 24px -1px rgba(0, 0, 0, 0.20)",
+          backdropFilter: "blur(20px)",
+          WebkitBackdropFilter: "blur(20px)",
+          padding: isMobile ? "12px 16px" : "10px 20px",
         }}
-        animate={isMobile && isOpen ? { borderRadius: '16px' } : { borderRadius: '20px' }}
+        animate={
+          isMobile && isOpen
+            ? { borderRadius: "16px" }
+            : { borderRadius: "20px" }
+        }
         transition={{ duration: 0.3, ease: "easeInOut" }}
       >
         <div className="flex justify-between gap-10 items-center w-full">
@@ -152,11 +177,11 @@ const NavBar = () => {
                 transition={{ duration: 0.5, ease: "easeOut" }}
                 className="pl-2"
               >
-                <Image 
-                  src="/FullFlowLogo.svg" 
-                  alt="FullFlow Logo" 
-                  width={isMobile ? 85 : 95} 
-                  height={isMobile ? 25 : 28} 
+                <Image
+                  src="/FullFlowLogo.svg"
+                  alt="FullFlow Logo"
+                  width={isMobile ? 85 : 95}
+                  height={isMobile ? 25 : 28}
                   className="object-contain"
                 />
               </motion.div>
@@ -171,10 +196,13 @@ const NavBar = () => {
                   key={item.name}
                   onClick={() => scrollToSection(item.id)}
                   className={`text-white no-underline text-base font-medium relative bg-transparent border-none cursor-pointer px-3 py-2 rounded-lg transition-all duration-300 ${
-                    activeSection === item.id ? 'bg-white/20 shadow-md' : ''
+                    activeSection === item.id ? "bg-white/20 shadow-md" : ""
                   }`}
-                  whileHover={{ 
-                    backgroundColor: activeSection === item.id ? 'rgba(255, 255, 255, 0.25)' : 'rgba(255, 255, 255, 0.1)' 
+                  whileHover={{
+                    backgroundColor:
+                      activeSection === item.id
+                        ? "rgba(255, 255, 255, 0.25)"
+                        : "rgba(255, 255, 255, 0.1)",
                   }}
                   whileTap={{ scale: 0.95 }}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -196,8 +224,20 @@ const NavBar = () => {
                   whileTap={{ scale: 0.9 }}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
                 >
-                  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M18 6L6 18M6 6L18 18" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <svg
+                    width="24"
+                    height="24"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                  >
+                    <path
+                      d="M18 6L6 18M6 6L18 18"
+                      stroke="white"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
                   </svg>
                 </motion.button>
               ) : (
@@ -216,13 +256,13 @@ const NavBar = () => {
             ) : (
               <motion.button
                 className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-5 text-base font-medium cursor-pointer flex items-center gap-2"
-                whileHover={{ 
-                  scale: 1.03, 
-                  background: 'rgba(255, 255, 255, 0.2)' 
+                whileHover={{
+                  scale: 1.03,
+                  background: "rgba(255, 255, 255, 0.2)",
                 }}
                 whileTap={{ scale: 0.95 }}
                 transition={{ duration: 0.2, ease: "easeInOut" }}
-                onClick={() => scrollToSection('pricing')}
+                onClick={() => scrollToSection("pricing")}
               >
                 Get Started
                 <motion.span
@@ -248,7 +288,11 @@ const NavBar = () => {
               className="w-full overflow-hidden"
             >
               <motion.div
-                className={`flex flex-col w-full ${isOpen ? 'pt-8 pb-4 border-t border-white/10 mt-4' : 'p-0 border-none mt-0'}`}
+                className={`flex flex-col w-full ${
+                  isOpen
+                    ? "pt-8 pb-4 border-t border-white/10 mt-4"
+                    : "p-0 border-none mt-0"
+                }`}
               >
                 {navItems.map((item) => (
                   <motion.button
@@ -256,10 +300,10 @@ const NavBar = () => {
                     variants={itemVariants}
                     onClick={() => scrollToSection(item.id)}
                     className={`text-white bg-transparent border-none no-underline py-3 px-5 text-base font-medium text-center relative overflow-hidden cursor-pointer mx-3 my-1 rounded-lg transition-all duration-300 ${
-                      activeSection === item.id ? 'bg-white/20 shadow-md' : ''
+                      activeSection === item.id ? "bg-white/20 shadow-md" : ""
                     }`}
                     whileHover={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.15)',
+                      backgroundColor: "rgba(255, 255, 255, 0.15)",
                     }}
                     whileTap={{ scale: 0.98 }}
                     transition={{ duration: 0.2, ease: "easeInOut" }}
@@ -270,13 +314,13 @@ const NavBar = () => {
                 <motion.button
                   variants={itemVariants}
                   className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 my-6 mx-auto w-4/5"
-                  whileHover={{ 
-                    scale: 1.02, 
-                    background: 'rgba(255, 255, 255, 0.2)' 
+                  whileHover={{
+                    scale: 1.02,
+                    background: "rgba(255, 255, 255, 0.2)",
                   }}
                   whileTap={{ scale: 0.98 }}
                   transition={{ duration: 0.2, ease: "easeInOut" }}
-                  onClick={() => scrollToSection('pricing')}
+                  onClick={() => scrollToSection("pricing")}
                 >
                   Get Started
                   <motion.span
