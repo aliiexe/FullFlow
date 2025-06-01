@@ -17,6 +17,8 @@ const HeroSection = () => {
     const interval = setInterval(() => {
       setCurrentWordIndex(prevIndex => (prevIndex + 1) % rotatingWords.length);
     }, 2000);
+    console.log('CLERK_TELEMETRY_DEBUG:', process.env.CLERK_TELEMETRY_DEBUG);
+    console.log('CLERK_TELEMETRY_DISABLED:', process.env.CLERK_TELEMETRY_DISABLED);
     
     return () => clearInterval(interval);
   }, []);
@@ -80,13 +82,22 @@ const HeroSection = () => {
             </motion.div>
             
             <motion.div 
-              className="mt-8 sm:mt-8 md:mt-10"
+              className="mt-8 sm:mt-8 md:mt-10 flex flex-col sm:flex-row gap-4"
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.8, duration: 0.5 }}
             >
               <a href="https://calendly.com/kaouter-karboub" target="_blank" rel="noopener noreferrer">
                 <ShinyButton className="text-sm sm:text-base py-2.5 px-6">Schedule a Call</ShinyButton>
+              </a>
+              
+              <a href="https://docs.google.com/presentation/d/1NVvoPjrc1Zvxq4lFBUE4L1ZxClzX02ZWi3F3a32T9tc/edit?usp=sharing" target="_blank" rel="noopener noreferrer">
+                <button className="text-sm sm:text-base py-2.5 px-6 bg-black/40 hover:bg-black/60 border border-primary/20 text-white rounded-full transition-all duration-300 flex items-center gap-2">
+                  Who is the CEO
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M7 17l9.2-9.2M17 17V7H7"/>
+                  </svg>
+                </button>
               </a>
             </motion.div>
           </motion.div>

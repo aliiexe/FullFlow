@@ -11,32 +11,32 @@ type FaqItem = {
 export default function FaqSection() {
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
 
-  const faqItems: FaqItem[] = [
-    {
-      question: "How does your service work?",
-      answer: "Our service operates on a subscription basis. Once you sign up, you'll get immediate access to our platform where you can manage your projects, access resources, and utilize our full suite of tools. We handle all the technical aspects, so you can focus on growing your business."
-    },
-    {
-      question: "What makes Full Flow different from competitors?",
-      answer: "Full Flow combines intuitive design with powerful functionality. Unlike our competitors, we provide a seamless experience with real-time analytics, AI-powered insights, and dedicated support. Our platform is built to scale with your business, ensuring you never outgrow our capabilities."
-    },
-    {
-      question: "Can I cancel my subscription anytime?",
-      answer: "Absolutely! We believe in the quality of our service, not in locking customers into contracts. You can cancel your subscription at any time directly from your account dashboard. If you cancel, you'll still have access until the end of your current billing period."
-    },
-    {
-      question: "Do you offer discounts for annual payments?",
-      answer: "Yes, we offer a 20% discount for annual subscriptions compared to the monthly payment option. This offers significant savings while providing you with uninterrupted access to our full range of features and priority support."
-    },
-    {
-      question: "Is there a free trial available?",
-      answer: "We offer a 14-day free trial with no credit card required. This gives you full access to explore our platform and see the value it brings to your workflow before making a decision. If you decide to continue, you can easily upgrade to one of our paid plans."
-    },
-    {
-      question: "What kind of support do you provide?",
-      answer: "We offer comprehensive support through multiple channels. Our customer service team is available via live chat during business hours, and you can submit support tickets 24/7. Premium plans include priority response times and dedicated account managers for personalized assistance."
-    },
-  ];
+    const faqItems: FaqItem[] = [
+      {
+        question: "How does your service work?",
+        answer: "Our service operates on a subscription basis. Once you sign up, you'll get immediate access to our platform where you can manage your projects, access resources, and utilize our full suite of tools. We handle all the technical aspects, so you can focus on growing your business."
+      },
+      {
+        question: "What makes Full Flow different from competitors?",
+        answer: "Full Flow combines intuitive design with powerful functionality. Unlike our competitors, we provide a seamless experience with real-time analytics, AI-powered insights, and dedicated support. Our platform is built to scale with your business, ensuring you never outgrow our capabilities."
+      },
+      {
+        question: "Can I cancel my subscription anytime?",
+        answer: "Absolutely! We believe in the quality of our service, not in locking customers into contracts. You can cancel your subscription at any time directly from your account dashboard. If you cancel, you'll still have access until the end of your current billing period."
+      },
+      {
+        question: "Do you offer discounts for annual payments?",
+        answer: "Yes, we offer a 20% discount for annual subscriptions compared to the monthly payment option. This offers significant savings while providing you with uninterrupted access to our full range of features and priority support."
+      },
+      {
+        question: "Do you provide a project development guide?",
+        answer: "We offer a comprehensive guide to how your project will be built step by step. Once you're a member of our family, we'll meet to explain the development process in detail. You can choose to iterate on the plan before we start building or prefer that we begin development and iterate as we progress—our process is flexible to suit your preferred working style."
+      },
+      {
+        question: "What kind of support do you provide?",
+        answer: "We are available 24/7 via Slack chat. When you become a client, you'll be invited to our dedicated Slack workspace where our team is always ready to answer questions, provide updates, and address any concerns. This direct communication channel ensures quick responses and personalized assistance whenever you need it."
+      },
+    ]
 
   const toggleAccordion = (index: number) => {
     setActiveIndex(activeIndex === index ? null : index);
