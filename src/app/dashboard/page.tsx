@@ -102,6 +102,7 @@ interface UserData {
   user_fullname: string;
   user_email: string;
   clerk_id: string;
+  project_key: string | null;
   payments: UserPayment[];
 }
 
@@ -313,12 +314,12 @@ export default function Dashboard() {
       const apiUrl =
         process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
 
-      // Get clerk ID from auth (assuming it's the same as userId,
-      // but you might need to adjust this based on your Clerk setup)
+      // Get clerk ID from auth
       const clerkId = userId;
 
       try {
-        const response = await fetch(`${apiUrl}/api/users/${clerkId}`);
+        // Using the updated endpoint with query parameter
+        const response = await fetch(`${apiUrl}/api/users?clerk_id=${clerkId}`);
         if (!response.ok) {
           throw new Error(`API error: ${response.status}`);
         }
@@ -334,6 +335,7 @@ export default function Dashboard() {
           user_fullname: "Demo User",
           user_email: "demo@example.com",
           clerk_id: userId || "mock-clerk-id",
+          project_key: null,
           payments: [
             {
               payment_id: "mock-payment-1",
