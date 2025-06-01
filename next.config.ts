@@ -17,9 +17,6 @@ const config: NextConfig = {
     }
     return config;
   },
-  env: {
-    CLERK_TELEMETRY_DEBUG: process.env.NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG,
-  },
   content: [
     "./pages/**/*.{js,ts,jsx,tsx}",
     "./components/**/*.{js,ts,jsx,tsx}",
