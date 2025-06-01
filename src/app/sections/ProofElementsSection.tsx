@@ -79,7 +79,7 @@ const ProofElementsSection = () => {
   }, {} as Record<number, typeof portfolioItems>);
 
   return (
-    <section className="relative py-24 md:py-32 overflow-hidden">
+    <section id='our-projects' className="relative py-24 md:py-32 overflow-hidden">
       <div className="absolute inset-0 z-0">
         <DotPattern
           width={24}
