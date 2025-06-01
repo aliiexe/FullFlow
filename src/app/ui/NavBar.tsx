@@ -3,6 +3,13 @@ import { motion, AnimatePresence } from "framer-motion";
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import {
+  SignedIn,
+  SignedOut,
+  UserButton,
+  SignInButton,
+  SignUpButton,
+} from "@clerk/nextjs";
 
 const AnimatedText = ({ text }: { text: string }) => {
   return (
@@ -43,7 +50,14 @@ const NavBar = () => {
 
     // Add scroll event listener to track active section
     const handleScroll = () => {
-      const sections = ["hero", "services", "pricing", "our-projects", "process", "faq"];
+      const sections = [
+        "hero",
+        "services",
+        "pricing",
+        "our-projects",
+        "process",
+        "faq",
+      ];
       const scrollPosition = window.scrollY + 100; // Offset for better detection
 
       // Find the current section based on scroll position
@@ -213,8 +227,94 @@ const NavBar = () => {
             </div>
           )}
 
-          {/* CTA Button or Mobile Menu Toggle */}
-          <div className="flex-shrink-0">
+          {/* CTA Button or Mobile Menu Toggle + Auth Components */}
+          <div className="flex-shrink-0 flex items-center gap-3">
+            {/* Auth components for desktop */}
+            {!isMobile && (
+              <>
+                <SignedIn>
+                  <UserButton
+                    afterSignOutUrl="/"
+                    appearance={{
+                      elements: {
+                        avatarBox: "h-9 w-9",
+                        userButtonTrigger:
+                          "focus:shadow-none focus:outline-none",
+                      },
+                    }}
+                  />
+                </SignedIn>
+
+                <SignedOut>
+                  <SignInButton mode="modal">
+                    <motion.button
+                      className="text-white bg-transparent border border-white/30 rounded-lg py-2 px-3 text-sm font-medium"
+                      whileHover={{
+                        backgroundColor: "rgba(255, 255, 255, 0.1)",
+                      }}
+                      whileTap={{ scale: 0.95 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                    >
+                      Sign in
+                    </motion.button>
+                  </SignInButton>
+                </SignedOut>
+              </>
+            )}
+
+            {/* Get Started / Dashboard button */}
+            {!isMobile ? (
+              <SignedIn>
+                <Link href="/dashboard">
+                  <motion.button
+                    className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-5 text-base font-medium cursor-pointer flex items-center gap-2"
+                    whileHover={{
+                      scale: 1.03,
+                      background: "rgba(255, 255, 255, 0.2)",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                  >
+                    Dashboard
+                    <motion.span
+                      initial={{ x: 0 }}
+                      whileHover={{ x: 3 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                    >
+                      →
+                    </motion.span>
+                  </motion.button>
+                </Link>
+              </SignedIn>
+            ) : null}
+
+            {!isMobile ? (
+              <SignedOut>
+                <SignUpButton mode="modal">
+                  <motion.button
+                    className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-4 text-sm font-medium"
+                    whileHover={{
+                      scale: 1.03,
+                      background: "rgba(255, 255, 255, 0.2)",
+                    }}
+                    whileTap={{ scale: 0.95 }}
+                    transition={{ duration: 0.2, ease: "easeInOut" }}
+                  >
+                    Get Started
+                    <motion.span
+                      initial={{ x: 0 }}
+                      whileHover={{ x: 3 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                      className="ml-1"
+                    >
+                      →
+                    </motion.span>
+                  </motion.button>
+                </SignUpButton>
+              </SignedOut>
+            ) : null}
+
+            {/* Mobile menu toggle */}
             {isMobile ? (
               isOpen ? (
                 <motion.button
@@ -253,27 +353,7 @@ const NavBar = () => {
                   <motion.div className="w-5 h-0.5 bg-white my-0.5" />
                 </motion.button>
               )
-            ) : (
-              <motion.button
-                className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-5 text-base font-medium cursor-pointer flex items-center gap-2"
-                whileHover={{
-                  scale: 1.03,
-                  background: "rgba(255, 255, 255, 0.2)",
-                }}
-                whileTap={{ scale: 0.95 }}
-                transition={{ duration: 0.2, ease: "easeInOut" }}
-                onClick={() => scrollToSection("pricing")}
-              >
-                Get Started
-                <motion.span
-                  initial={{ x: 0 }}
-                  whileHover={{ x: 3 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                >
-                  →
-                </motion.span>
-              </motion.button>
-            )}
+            ) : null}
           </div>
         </div>
 
@@ -311,26 +391,73 @@ const NavBar = () => {
                     <AnimatedText text={item.name} />
                   </motion.button>
                 ))}
-                <motion.button
-                  variants={itemVariants}
-                  className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 my-6 mx-auto w-4/5"
-                  whileHover={{
-                    scale: 1.02,
-                    background: "rgba(255, 255, 255, 0.2)",
-                  }}
-                  whileTap={{ scale: 0.98 }}
-                  transition={{ duration: 0.2, ease: "easeInOut" }}
-                  onClick={() => scrollToSection("pricing")}
-                >
-                  Get Started
-                  <motion.span
-                    initial={{ x: 0 }}
-                    whileHover={{ x: 3 }}
-                    transition={{ duration: 0.2, ease: "easeInOut" }}
-                  >
-                    →
-                  </motion.span>
-                </motion.button>
+
+                {/* Auth components for mobile menu */}
+                <SignedIn>
+                  <div className="flex items-center justify-center my-4">
+                    <UserButton afterSignOutUrl="/" />
+                  </div>
+                  <Link href="/dashboard">
+                    <motion.button
+                      variants={itemVariants}
+                      className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 my-2 mx-auto w-4/5"
+                      whileHover={{
+                        scale: 1.02,
+                        background: "rgba(255, 255, 255, 0.2)",
+                      }}
+                      whileTap={{ scale: 0.98 }}
+                      transition={{ duration: 0.2, ease: "easeInOut" }}
+                    >
+                      Dashboard
+                      <motion.span
+                        initial={{ x: 0 }}
+                        whileHover={{ x: 3 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                      >
+                        →
+                      </motion.span>
+                    </motion.button>
+                  </Link>
+                </SignedIn>
+
+                <SignedOut>
+                  <div className="flex flex-col gap-3 my-4 w-4/5 mx-auto">
+                    <SignInButton mode="modal">
+                      <motion.button
+                        variants={itemVariants}
+                        className="border border-white/30 rounded-lg bg-transparent text-white py-3 px-6 text-base font-medium w-full"
+                        whileHover={{
+                          backgroundColor: "rgba(255, 255, 255, 0.1)",
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                      >
+                        Sign in
+                      </motion.button>
+                    </SignInButton>
+
+                    <SignUpButton mode="modal">
+                      <motion.button
+                        variants={itemVariants}
+                        className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 w-full"
+                        whileHover={{
+                          scale: 1.02,
+                          background: "rgba(255, 255, 255, 0.2)",
+                        }}
+                        whileTap={{ scale: 0.98 }}
+                        transition={{ duration: 0.2, ease: "easeInOut" }}
+                      >
+                        Get Started
+                        <motion.span
+                          initial={{ x: 0 }}
+                          whileHover={{ x: 3 }}
+                          transition={{ duration: 0.2, ease: "easeInOut" }}
+                        >
+                          →
+                        </motion.span>
+                      </motion.button>
+                    </SignUpButton>
+                  </div>
+                </SignedOut>
               </motion.div>
             </motion.div>
           )}

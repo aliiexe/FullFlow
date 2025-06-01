@@ -2,7 +2,10 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import { GrainEffect } from "./ui/GrainEffect";
+import { ClerkProvider } from "@clerk/nextjs";
+import Script from "next/script";
 
+// Define fonts
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -12,6 +15,22 @@ const geistMono = Geist_Mono({
   variable: "--font-geist-mono",
   subsets: ["latin"],
 });
+
+// Create globally accessible polyfill script that runs immediately
+const globalPolyfill = `
+  ;(function() {
+    if (typeof window !== 'undefined' && !window.process) {
+      window.process = { 
+        env: {
+          CLERK_TELEMETRY_DEBUG: false,
+          CLERK_TELEMETRY_DISABLED: true,
+          NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
+          NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true
+        } 
+      };
+    }
+  })();
+`;
 
 export const metadata: Metadata = {
   title: "Full Flow",
@@ -33,13 +52,41 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
-      <body
-        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+    <>
+      {/* Immediately execute polyfill script */}
+      <script dangerouslySetInnerHTML={{ __html: globalPolyfill }} />
+      <ClerkProvider
+        telemetry={{
+          disabled: true,
+          debug: false,
+        }}
       >
-        <GrainEffect />
-        {children}
-      </body>
-    </html>
+        <html lang="en">
+          <head>
+            {/* Keep the original script as a backup */}
+            <Script id="clerk-env-polyfill" strategy="beforeInteractive">
+              {`
+                if (typeof window !== 'undefined' && !window.process) {
+                  window.process = { 
+                    env: {
+                      CLERK_TELEMETRY_DEBUG: false,
+                      CLERK_TELEMETRY_DISABLED: true,
+                      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
+                      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true
+                    } 
+                  };
+                }
+              `}
+            </Script>
+          </head>
+          <body
+            className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          >
+            <GrainEffect />
+            {children}
+          </body>
+        </html>
+      </ClerkProvider>
+    </>
   );
 }
