@@ -20,10 +20,10 @@ import { useRouter } from "next/navigation";
 if (typeof window !== "undefined" && !window.process) {
   window.process = {
     env: {
-      CLERK_TELEMETRY_DEBUG: false,
-      CLERK_TELEMETRY_DISABLED: true,
-      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: false,
-      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: true,
+      CLERK_TELEMETRY_DEBUG: "false",
+      CLERK_TELEMETRY_DISABLED: "true",
+      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
+      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true",
     },
   };
 }
