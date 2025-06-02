@@ -36,7 +36,7 @@ interface SubscriptionPlan {
 }
 
 interface ProjectInfos {
-  email: string;
+  clerk_id: string;
   projectkey: string;
   jiraurl: string;
   slackurl: string;
@@ -131,7 +131,7 @@ async function createSlackChannel(customerData: {
 async function sendProjectInfo(data: ProjectInfos) {
   try {
     console.log('Sending project information with details:');
-    console.log('- Customer Email:', data.email);
+    console.log('- Clerk ID:', data.clerk_id);
     console.log('- Project Key:', data.projectkey);
     console.log('- Jira URL:', data.jiraurl);
     console.log('- Slack URL:', data.slackurl);
@@ -265,8 +265,8 @@ export async function POST(request: NextRequest) {
       const projectkey = projectKey;
 
       await sendProjectInfo({
-        email,
-        projectkey,
+        clerk_id: clerkId || 'anonymous',
+        projectkey: projectKey,
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
@@ -351,8 +351,8 @@ export async function POST(request: NextRequest) {
       const projectkey = projectKey;
 
       await sendProjectInfo({
-        email,
-        projectkey,
+        clerk_id: clerkId || 'anonymous',
+        projectkey: projectKey,
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
