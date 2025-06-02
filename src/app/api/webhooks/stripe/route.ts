@@ -134,7 +134,6 @@ export async function POST(req: NextRequest) {
 
 async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
   console.log('🔍 PAYMENT HANDLER: Starting payment processing');
-  console.log('🔍 PAYMENT HANDLER: Full session object:', JSON.stringify(session).substring(0, 1000) + '...');
   
   // Extract relevant data from session
   const isSubscription = session.metadata?.isSubscription === 'true';
@@ -142,19 +141,17 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
   const customerName = session.metadata?.customerFullName || '';
   const amount = session.amount_total ? session.amount_total / 100 : 0;
   const transactionId = session.payment_intent || session.id;
+  const clerkId = session.metadata?.clerkId || ''; // Extract clerkId from metadata
   
   console.log('🔍 PAYMENT HANDLER: Extracted data:', {
     isSubscription,
     customerEmail,
     customerName,
+    clerkId, // Log the clerkId
     amount,
     transactionId,
     metadata: session.metadata
   });
-  
-  // Verify environment variables
-  console.log('🔍 PAYMENT HANDLER: Environment variables:');
-  console.log('🔍 PAYMENT HANDLER: NEXT_PUBLIC_API_URL =', process.env.NEXT_PUBLIC_API_URL);
   
   // Determine which API endpoint to call based on payment type
   if (isSubscription) {
@@ -168,10 +165,12 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
     }
     
     const paymentData = {
+      clerk_id: clerkId, // Include clerk_id in the payload
       email: customerEmail,
       fullname: customerName,
       amount: amount,
       payment_method: 'Stripe',
+      status: 'paid',
       transaction_id: transactionId,
       subscription_id: subscriptionId
     };
@@ -233,9 +232,11 @@ async function handleCompletedCheckout(session: Stripe.Checkout.Session) {
     }
     
     const paymentData = {
+      clerk_id: clerkId, // Include clerk_id in the payload
       email: customerEmail,
       fullname: customerName,
       payment_method: 'Stripe',
+      status: 'paid',
       transaction_id: transactionId,
       deliverable_ids: deliverableIds
     };
