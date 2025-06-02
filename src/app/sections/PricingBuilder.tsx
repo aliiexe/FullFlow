@@ -1,11 +1,19 @@
-'use client';
-import React, { useState, useEffect } from 'react';
-import { Check, Plus, ChevronDown, ChevronUp, Loader2, ArrowRight } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
-import CheckoutButton from '../api/payment/CheckoutButton';
+"use client";
+import React, { useState, useEffect } from "react";
+import {
+  Check,
+  Plus,
+  ChevronDown,
+  ChevronUp,
+  Loader2,
+  ArrowRight,
+} from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import CheckoutButton from "../api/payment/CheckoutButton";
+import { useAuth, SignInButton } from "@clerk/nextjs"; // Import SignInButton
 
 // Define types based on your API schema
-export type ServiceCategory = 'ai' | 'digital' | 'creative' | 'growth';
+export type ServiceCategory = "ai" | "digital" | "creative" | "growth";
 
 interface Category {
   id: string;
@@ -60,119 +68,184 @@ export interface SubscriptionPlan {
 
 // Default subscription plans (fallback)
 const defaultSubscriptionPlans = [
-  { 
-    id: 'starter', 
-    name: 'Starter', 
-    description: 'Pay Per Month', 
+  {
+    id: "starter",
+    name: "Starter",
+    description: "Pay Per Month",
     price: 999,
     is_active: true,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   },
-  { 
-    id: 'growth', 
-    name: 'Growth', 
-    description: 'Pay Per Month', 
+  {
+    id: "growth",
+    name: "Growth",
+    description: "Pay Per Month",
     price: 2499,
     is_active: true,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
+    updated_at: new Date().toISOString(),
   },
-  { 
-    id: 'enterprise', 
-    name: 'Enterprise', 
-    description: 'Pay Per Month', 
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    description: "Pay Per Month",
     price: 4999,
     is_active: true,
     created_at: new Date().toISOString(),
-    updated_at: new Date().toISOString()
-  }
+    updated_at: new Date().toISOString(),
+  },
 ];
 
 // Helper function to map API category names to ServiceCategory type
 const mapCategoryNameToType = (name: string): ServiceCategory => {
   switch (name) {
-    case 'AI-Enabled Solutions': return 'ai';
-    case 'Digital Products & Web': return 'digital';
-    case 'Creative & Branding': return 'creative';
-    case 'Growth & Support': return 'growth';
-    default: return 'ai';
+    case "AI-Enabled Solutions":
+      return "ai";
+    case "Digital Products & Web":
+      return "digital";
+    case "Creative & Branding":
+      return "creative";
+    case "Growth & Support":
+      return "growth";
+    default:
+      return "ai";
   }
 };
 
 const PricingBuilder: React.FC = () => {
-  const [pricingModel, setPricingModel] = useState<'perService' | 'subscription'>('perService');
+  const [pricingModel, setPricingModel] = useState<
+    "perService" | "subscription"
+  >("perService");
   const [selectedServices, setSelectedServices] = useState<string[]>([]);
-  const [expandedCategory, setExpandedCategory] = useState<ServiceCategory | null>(null);
+  const [expandedCategory, setExpandedCategory] =
+    useState<ServiceCategory | null>(null);
   const [totalPrice, setTotalPrice] = useState(0);
   const [services, setServices] = useState<Service[]>([]);
-  const [subscriptionPlans, setSubscriptionPlans] = useState<SubscriptionPlan[]>([]);
+  const [subscriptionPlans, setSubscriptionPlans] = useState<
+    SubscriptionPlan[]
+  >([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<string | null>(null);
-  const [showSubscriptionCheckout, setShowSubscriptionCheckout] = useState(false);
+  const [selectedSubscriptionId, setSelectedSubscriptionId] = useState<
+    string | null
+  >(null);
+  const [showSubscriptionCheckout, setShowSubscriptionCheckout] =
+    useState(false);
+
+  // Add Clerk authentication
+  const { isSignedIn, userId } = useAuth();
 
   // Fetch data from API
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Fetch categories
-        const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`);
+        const categoriesResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/categories`
+        );
         if (!categoriesResponse.ok) {
-          throw new Error('Failed to fetch categories');
+          throw new Error("Failed to fetch categories");
         }
         const categoriesData: Category[] = await categoriesResponse.json();
-        
+
         // Fetch deliverables
-        const deliverablesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/deliverables`);
+        const deliverablesResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/deliverables`
+        );
         if (!deliverablesResponse.ok) {
-          throw new Error('Failed to fetch deliverables');
+          throw new Error("Failed to fetch deliverables");
         }
-        const deliverablesData: Deliverable[] = await deliverablesResponse.json();
-        
+        const deliverablesData: Deliverable[] =
+          await deliverablesResponse.json();
+
         // Fetch subscription tiers
-        const subsResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`);
+        const subsResponse = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`
+        );
         if (!subsResponse.ok) {
-          throw new Error('Failed to fetch subscription tiers');
+          throw new Error("Failed to fetch subscription tiers");
         }
         const subscriptionData = await subsResponse.json();
-        
+
         // Process data to match your component's expected format
         const processedServices: Service[] = deliverablesData
-            .filter(deliverable => deliverable.is_active)
-            .map((deliverable) => {
-                // Find the category for this deliverable
-                const category = categoriesData.find(
-                cat => cat.id === deliverable.service_category_id
-                ) || deliverable.service_category;
-                
-                return {
-                id: deliverable.id,
-                title: deliverable.name,
-                description: deliverable.description || `Professional ${deliverable.name} service tailored to your needs`,
-                price: deliverable.price || 1500, // Fallback price if null
-                category: mapCategoryNameToType(category.name),
-                categoryId: deliverable.service_category_id
-                };
-            });
-        
+          .filter((deliverable) => deliverable.is_active)
+          .map((deliverable) => {
+            // Find the category for this deliverable
+            const category =
+              categoriesData.find(
+                (cat) => cat.id === deliverable.service_category_id
+              ) || deliverable.service_category;
+
+            return {
+              id: deliverable.id,
+              title: deliverable.name,
+              description:
+                deliverable.description ||
+                `Professional ${deliverable.name} service tailored to your needs`,
+              price: deliverable.price || 1500, // Fallback price if null
+              category: mapCategoryNameToType(category.name),
+              categoryId: deliverable.service_category_id,
+            };
+          });
+
         setServices(processedServices);
-        setSubscriptionPlans(subscriptionData.filter((plan: any) => plan.is_active));
+        setSubscriptionPlans(
+          subscriptionData.filter((plan: any) => plan.is_active)
+        );
       } catch (err) {
-        console.error('Error fetching data:', err);
-        setError('Failed to load services. Please try again later.');
-        
+        console.error("Error fetching data:", err);
+        setError("Failed to load services. Please try again later.");
+
         // Fallback to default data
         setServices([
-          { id: 'ai-nlp', title: 'Natural Language Processing', description: 'Add language understanding capabilities to your applications', price: 2500, category: 'ai', categoryId: 'ai-cat' },
-          { id: 'ai-vision', title: 'Computer Vision', description: 'Image and video analysis for your applications', price: 3000, category: 'ai', categoryId: 'ai-cat' },
-          { id: 'digital-web', title: 'Web Application', description: 'Modern, responsive web applications built with Next.js', price: 5000, category: 'digital', categoryId: 'digital-cat' },
-          { id: 'creative-brand', title: 'Brand Identity', description: 'Complete brand identity development', price: 3500, category: 'creative', categoryId: 'creative-cat' },
-          { id: 'growth-analytics', title: 'Analytics Setup', description: 'Complete analytics and reporting setup', price: 1500, category: 'growth', categoryId: 'growth-cat' }
+          {
+            id: "ai-nlp",
+            title: "Natural Language Processing",
+            description:
+              "Add language understanding capabilities to your applications",
+            price: 2500,
+            category: "ai",
+            categoryId: "ai-cat",
+          },
+          {
+            id: "ai-vision",
+            title: "Computer Vision",
+            description: "Image and video analysis for your applications",
+            price: 3000,
+            category: "ai",
+            categoryId: "ai-cat",
+          },
+          {
+            id: "digital-web",
+            title: "Web Application",
+            description:
+              "Modern, responsive web applications built with Next.js",
+            price: 5000,
+            category: "digital",
+            categoryId: "digital-cat",
+          },
+          {
+            id: "creative-brand",
+            title: "Brand Identity",
+            description: "Complete brand identity development",
+            price: 3500,
+            category: "creative",
+            categoryId: "creative-cat",
+          },
+          {
+            id: "growth-analytics",
+            title: "Analytics Setup",
+            description: "Complete analytics and reporting setup",
+            price: 1500,
+            category: "growth",
+            categoryId: "growth-cat",
+          },
         ]);
-        
+
         // Use default subscription plans as fallback
         setSubscriptionPlans(defaultSubscriptionPlans);
       } finally {
@@ -186,15 +259,15 @@ const PricingBuilder: React.FC = () => {
   useEffect(() => {
     const calculateTotal = () =>
       selectedServices.reduce((sum, id) => {
-        const svc = services.find(s => s.id === id);
+        const svc = services.find((s) => s.id === id);
         return sum + (svc?.price || 0);
       }, 0);
     setTotalPrice(calculateTotal());
   }, [selectedServices, services]);
 
   const toggleService = (id: string) => {
-    setSelectedServices(prev =>
-      prev.includes(id) ? prev.filter(s => s !== id) : [...prev, id]
+    setSelectedServices((prev) =>
+      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
     );
   };
 
@@ -213,27 +286,30 @@ const PricingBuilder: React.FC = () => {
   };
 
   const categorized: Record<ServiceCategory, Service[]> = {
-    ai: services.filter(s => s.category === 'ai'),
-    digital: services.filter(s => s.category === 'digital'),
-    creative: services.filter(s => s.category === 'creative'),
-    growth: services.filter(s => s.category === 'growth')
+    ai: services.filter((s) => s.category === "ai"),
+    digital: services.filter((s) => s.category === "digital"),
+    creative: services.filter((s) => s.category === "creative"),
+    growth: services.filter((s) => s.category === "growth"),
   };
 
   const getRecommendations = (): Service[] => {
     if (!selectedServices.length) return [];
-    const selectedCats = selectedServices.map(id => services.find(s => s.id === id)?.category);
-    
+    const selectedCats = selectedServices.map(
+      (id) => services.find((s) => s.id === id)?.category
+    );
+
     // Find all services from non-selected categories
-    const eligibleServices = services.filter(s => 
+    const eligibleServices = services.filter(
+      (s) =>
         !selectedServices.includes(s.id) && !selectedCats.includes(s.category)
     );
-    
+
     // If no eligible services are found, return empty array
     if (eligibleServices.length === 0) return [];
-    
+
     // Shuffle the eligible services array
     const shuffled = [...eligibleServices].sort(() => Math.random() - 0.5);
-    
+
     // Return up to 2 random services
     return shuffled.slice(0, 2);
   };
@@ -241,7 +317,9 @@ const PricingBuilder: React.FC = () => {
   const recommendations = getRecommendations();
 
   // Find selected subscription plan
-  const selectedPlan = subscriptionPlans.find(plan => plan.id === selectedSubscriptionId);
+  const selectedPlan = subscriptionPlans.find(
+    (plan) => plan.id === selectedSubscriptionId
+  );
 
   // Loading state
   if (isLoading) {
@@ -274,12 +352,15 @@ const PricingBuilder: React.FC = () => {
           initial={{ opacity: 0, y: 20 }}
           whileInView={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          viewport={{ once: true, margin: '-100px' }}
+          viewport={{ once: true, margin: "-100px" }}
           className="text-center mb-20"
         >
-          <h2 className="text-white text-4xl md:text-5xl font-bold mb-4">Flexible Pricing</h2>
+          <h2 className="text-white text-4xl md:text-5xl font-bold mb-4">
+            Flexible Pricing
+          </h2>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Choose only what you need. Our transparent pricing ensures you never pay for services you don't use.
+            Choose only what you need. Our transparent pricing ensures you never
+            pay for services you don't use.
           </p>
         </motion.div>
 
@@ -287,24 +368,28 @@ const PricingBuilder: React.FC = () => {
           <div className="backdrop-blur-md rounded-lg p-1 shadow-md inline-flex border border-white/10 bg-white/[0.03] w-full max-w-md">
             <button
               onClick={() => {
-                setPricingModel('perService');
+                setPricingModel("perService");
                 setSelectedSubscriptionId(null);
                 setShowSubscriptionCheckout(false);
               }}
               className={`flex-1 px-6 py-3 rounded-md text-sm font-medium ${
-                pricingModel === 'perService' ? 'bg-indigo-600/80 text-white' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                pricingModel === "perService"
+                  ? "bg-indigo-600/80 text-white"
+                  : "text-gray-300 hover:text-white hover:bg-white/5"
               } transition-colors`}
             >
               Pay Per Deliverable
             </button>
             <button
               onClick={() => {
-                setPricingModel('subscription');
+                setPricingModel("subscription");
                 setSelectedSubscriptionId(null);
                 setShowSubscriptionCheckout(false);
               }}
               className={`flex-1 px-6 py-3 rounded-md text-sm font-medium ${
-                pricingModel === 'subscription' ? 'bg-indigo-600/80 text-white' : 'text-gray-300 hover:text-white hover:bg-white/5'
+                pricingModel === "subscription"
+                  ? "bg-indigo-600/80 text-white"
+                  : "text-gray-300 hover:text-white hover:bg-white/5"
               } transition-colors`}
             >
               Subscription
@@ -312,15 +397,17 @@ const PricingBuilder: React.FC = () => {
           </div>
         </div>
 
-        {pricingModel === 'perService' ? (
+        {pricingModel === "perService" ? (
           <div className="flex flex-col lg:flex-row backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg w-full">
             {/* Service Selection */}
             <div className="flex-1 border-r border-white/10 p-8">
-              <h3 className="text-2xl font-bold text-white mb-6">Select Your Deliverables</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Select Your Deliverables
+              </h3>
               <div className="space-y-4">
                 {Object.entries(categorized).map(([cat, list]) => (
-                  <motion.div 
-                    key={cat} 
+                  <motion.div
+                    key={cat}
                     className="border border-white/10 rounded-lg overflow-hidden backdrop-blur-sm w-full"
                     initial={{ opacity: 0, y: 20 }}
                     whileInView={{ opacity: 1, y: 0 }}
@@ -334,21 +421,27 @@ const PricingBuilder: React.FC = () => {
                           className="w-full flex items-center justify-between p-4 text-left hover:bg-white/[0.03] transition-colors"
                         >
                           <span className="font-medium text-white">
-                            {cat === 'ai' && 'AI-Enabled Solutions'}
-                            {cat === 'digital' && 'Digital Products & Web'}
-                            {cat === 'creative' && 'Creative & Branding'}
-                            {cat === 'growth' && 'Growth & Support'}
+                            {cat === "ai" && "AI-Enabled Solutions"}
+                            {cat === "digital" && "Digital Products & Web"}
+                            {cat === "creative" && "Creative & Branding"}
+                            {cat === "growth" && "Growth & Support"}
                           </span>
-                          {expandedCategory === cat ? <ChevronUp className="h-5 w-5 text-indigo-300" /> : <ChevronDown className="h-5 w-5 text-indigo-300" />}
+                          {expandedCategory === cat ? (
+                            <ChevronUp className="h-5 w-5 text-indigo-300" />
+                          ) : (
+                            <ChevronDown className="h-5 w-5 text-indigo-300" />
+                          )}
                         </button>
                         {expandedCategory === cat && (
                           <div className="border-t border-white/10 p-4 w-full">
                             <div className="space-y-3">
-                              {list.map(service => (
+                              {list.map((service) => (
                                 <div
                                   key={service.id}
                                   className={`flex items-start p-3 rounded-lg cursor-pointer transition-colors w-full ${
-                                    selectedServices.includes(service.id) ? 'bg-indigo-600/20' : 'hover:bg-white/[0.03]'
+                                    selectedServices.includes(service.id)
+                                      ? "bg-indigo-600/20"
+                                      : "hover:bg-white/[0.03]"
                                   }`}
                                   onClick={() => toggleService(service.id)}
                                 >
@@ -363,10 +456,18 @@ const PricingBuilder: React.FC = () => {
                                   </div>
                                   <div className="flex-1 min-w-0">
                                     <div className="flex items-center justify-between">
-                                      <h4 className="font-medium text-white">{service.title}</h4>
+                                      <h4 className="font-medium text-white">
+                                        {service.title}
+                                      </h4>
                                     </div>
-                                    <p className="text-sm text-gray-300 mt-1">{service.description}</p>
-                                    <span className="font-semibold text-indigo-200 mt-1 block">${service.price?.toLocaleString() ?? 'Custom pricing'}</span>
+                                    <p className="text-sm text-gray-300 mt-1">
+                                      {service.description}
+                                    </p>
+                                    <span className="font-semibold text-indigo-200 mt-1 block">
+                                      $
+                                      {service.price?.toLocaleString() ??
+                                        "Custom pricing"}
+                                    </span>
                                   </div>
                                 </div>
                               ))}
@@ -380,9 +481,11 @@ const PricingBuilder: React.FC = () => {
               </div>
               {recommendations.length > 0 && (
                 <div className="mt-8 pt-6 border-t border-white/10 w-full">
-                  <h4 className="font-medium text-white mb-4">Recommended Services</h4>
+                  <h4 className="font-medium text-white mb-4">
+                    Recommended Services
+                  </h4>
                   <div className="space-y-3">
-                    {recommendations.map(service => (
+                    {recommendations.map((service) => (
                       <div
                         key={service.id}
                         className="flex items-start p-3 rounded-lg border border-indigo-500/30 bg-indigo-600/10 cursor-pointer hover:bg-indigo-600/20 transition-colors w-full"
@@ -391,10 +494,16 @@ const PricingBuilder: React.FC = () => {
                         <Plus className="h-3 w-3 text-indigo-300 mr-3 mt-0.5 flex-shrink-0" />
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center justify-between">
-                            <h4 className="font-medium text-white">{service.title}</h4>
-                            <span className="font-semibold text-indigo-200 ml-2">${service.price?.toLocaleString() ?? 'Custom'}</span>
+                            <h4 className="font-medium text-white">
+                              {service.title}
+                            </h4>
+                            <span className="font-semibold text-indigo-200 ml-2">
+                              ${service.price?.toLocaleString() ?? "Custom"}
+                            </span>
                           </div>
-                          <p className="text-sm text-gray-300 mt-1">{service.description}</p>
+                          <p className="text-sm text-gray-300 mt-1">
+                            {service.description}
+                          </p>
                         </div>
                       </div>
                     ))}
@@ -404,17 +513,21 @@ const PricingBuilder: React.FC = () => {
             </div>
             {/* Order Summary */}
             <div className="w-full lg:w-1/3 bg-white/[0.02] backdrop-blur-md p-8">
-              <h3 className="text-2xl font-bold text-white mb-6">Your Solution</h3>
+              <h3 className="text-2xl font-bold text-white mb-6">
+                Your Solution
+              </h3>
               {selectedServices.length === 0 ? (
                 <div className="text-center py-10">
                   <p className="text-gray-400 mb-4">No services selected yet</p>
-                  <p className="text-sm text-gray-500">Select services from the left to build your custom solution</p>
+                  <p className="text-sm text-gray-500">
+                    Select services from the left to build your custom solution
+                  </p>
                 </div>
               ) : (
                 <>
                   <div className="mb-6 space-y-4">
-                    {selectedServices.map(id => {
-                      const svc = services.find(s => s.id === id);
+                    {selectedServices.map((id) => {
+                      const svc = services.find((s) => s.id === id);
                       return svc ? (
                         <div
                           key={svc.id}
@@ -422,23 +535,43 @@ const PricingBuilder: React.FC = () => {
                           onClick={() => toggleService(svc.id)}
                         >
                           <span className="text-gray-300">{svc.title}</span>
-                          <span className="font-medium text-indigo-200">${svc.price?.toLocaleString() ?? 'Custom'}</span>
+                          <span className="font-medium text-indigo-200">
+                            ${svc.price?.toLocaleString() ?? "Custom"}
+                          </span>
                         </div>
                       ) : null;
                     })}
                   </div>
                   <div className="mt-6 pt-6 border-t border-white/10 flex justify-between items-center w-full">
                     <span className="font-bold text-lg text-white">Total</span>
-                    <span className="font-bold text-2xl bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${totalPrice.toLocaleString()}</span>
+                    <span className="font-bold text-2xl bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                      ${totalPrice.toLocaleString()}
+                    </span>
                   </div>
                   <div className="mt-6">
-                    <CheckoutButton 
-                      selectedServices={selectedServices} 
-                      totalPrice={totalPrice}
-                      isSubscription={false}
-                    />
+                    {isSignedIn ? (
+                      <CheckoutButton
+                        selectedServices={selectedServices}
+                        totalPrice={totalPrice}
+                        isSubscription={false}
+                        clerkId={userId || ""} // Pass the Clerk ID
+                      />
+                    ) : (
+                      <SignInButton mode="modal">
+                        <button
+                          className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
+                            text-white text-lg font-medium rounded-lg transition-all shadow-lg 
+                            shadow-indigo-900/50 flex items-center justify-center
+                            hover:from-indigo-500 hover:to-indigo-600"
+                        >
+                          Sign In to Continue
+                        </button>
+                      </SignInButton>
+                    )}
                   </div>
-                  <p className="text-sm text-gray-400 mt-4 text-center">No commitment. Start building today.</p>
+                  <p className="text-sm text-gray-400 mt-4 text-center">
+                    No commitment. Start building today.
+                  </p>
                 </>
               )}
             </div>
@@ -446,7 +579,7 @@ const PricingBuilder: React.FC = () => {
         ) : (
           <AnimatePresence mode="wait">
             {!showSubscriptionCheckout ? (
-              <motion.div 
+              <motion.div
                 key="plan-selection"
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -463,33 +596,45 @@ const PricingBuilder: React.FC = () => {
                     className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden transition-all duration-300 hover:shadow-xl hover:shadow-indigo-700/20 hover:-translate-y-1 w-full"
                   >
                     <div className="p-8 w-full">
-                      <h3 className="text-2xl font-bold text-white mb-2">{plan.name}</h3>
-                      
+                      <h3 className="text-2xl font-bold text-white mb-2">
+                        {plan.name}
+                      </h3>
+
                       <div className="my-6 flex flex-col items-start">
                         <div className="flex items-baseline mb-1">
-                          <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">${plan.price}</span>
+                          <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
+                            ${plan.price}
+                          </span>
                         </div>
-                        <span className="text-gray-400 text-sm">{plan.description}</span>
+                        <span className="text-gray-400 text-sm">
+                          {plan.description}
+                        </span>
                       </div>
-                      
+
                       {/* Features section */}
                       <div className="border-t border-white/10 pt-6 mb-8">
                         <ul className="space-y-3">
                           <li className="flex items-start">
                             <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                            <span className="text-gray-300">Full access to all features</span>
+                            <span className="text-gray-300">
+                              Full access to all features
+                            </span>
                           </li>
                           <li className="flex items-start">
                             <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                            <span className="text-gray-300">Priority customer support</span>
+                            <span className="text-gray-300">
+                              Priority customer support
+                            </span>
                           </li>
                           <li className="flex items-start">
                             <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                            <span className="text-gray-300">Regular updates</span>
+                            <span className="text-gray-300">
+                              Regular updates
+                            </span>
                           </li>
                         </ul>
                       </div>
-                      
+
                       <button
                         onClick={() => selectSubscription(plan.id)}
                         className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
@@ -513,32 +658,40 @@ const PricingBuilder: React.FC = () => {
               >
                 {selectedPlan && (
                   <>
-                    <button 
+                    <button
                       onClick={backToSubscriptionSelection}
                       className="mb-6 text-indigo-400 hover:text-indigo-300 flex items-center"
                     >
                       <ArrowRight className="w-4 h-4 mr-2 rotate-180" />
                       Back to plans
                     </button>
-                    
-                    <h3 className="text-2xl font-bold text-white mb-4">Subscribe to {selectedPlan.name}</h3>
-                    
+
+                    <h3 className="text-2xl font-bold text-white mb-4">
+                      Subscribe to {selectedPlan.name}
+                    </h3>
+
                     <div className="mb-2 flex items-baseline">
                       <span className="text-4xl font-bold bg-gradient-to-r from-indigo-400 to-purple-400 bg-clip-text text-transparent">
                         ${selectedPlan.price}
                       </span>
                     </div>
-                    <span className="text-gray-400 text-sm block mb-6">{selectedPlan.description}</span>
-                    
+                    <span className="text-gray-400 text-sm block mb-6">
+                      {selectedPlan.description}
+                    </span>
+
                     <div className="mb-8 border-t border-white/10 pt-6">
                       <ul className="space-y-3">
                         <li className="flex items-start">
                           <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                          <span className="text-gray-300">Full access to all features</span>
+                          <span className="text-gray-300">
+                            Full access to all features
+                          </span>
                         </li>
                         <li className="flex items-start">
                           <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
-                          <span className="text-gray-300">Priority customer support</span>
+                          <span className="text-gray-300">
+                            Priority customer support
+                          </span>
                         </li>
                         <li className="flex items-start">
                           <Check className="h-5 w-5 mr-2 flex-shrink-0 mt-0.5 text-indigo-400" />
@@ -546,13 +699,27 @@ const PricingBuilder: React.FC = () => {
                         </li>
                       </ul>
                     </div>
-                    
-                    <CheckoutButton 
-                      selectedServices={[]} 
-                      totalPrice={selectedPlan.price}
-                      subscriptionId={selectedPlan.id}
-                      isSubscription={true}
-                    />
+
+                    {isSignedIn ? (
+                      <CheckoutButton
+                        selectedServices={[]}
+                        totalPrice={selectedPlan.price}
+                        subscriptionId={selectedPlan.id}
+                        isSubscription={true}
+                        clerkId={userId || ""}
+                      />
+                    ) : (
+                      <SignInButton mode="modal">
+                        <button
+                          className="w-full py-4 bg-gradient-to-r from-indigo-600 to-indigo-700 
+                            text-white text-lg font-medium rounded-lg transition-all shadow-lg 
+                            shadow-indigo-900/50 flex items-center justify-center
+                            hover:from-indigo-500 hover:to-indigo-600"
+                        >
+                          Sign In to Continue
+                        </button>
+                      </SignInButton>
+                    )}
                   </>
                 )}
               </motion.div>

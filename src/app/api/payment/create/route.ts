@@ -1,16 +1,7 @@
 import Stripe from "stripe";
 import { NextRequest, NextResponse } from "next/server";
-import { console } from "node:inspector";
 
-interface Category {
-  id: string;
-  name: string;
-  description: string | null;
-  base_id: string | null;
-  order_position: number | null;
-  created_at: string;
-  updated_at: string;
-}
+// Remove unused Category interface
 
 interface Deliverable {
   id: string;
@@ -137,48 +128,6 @@ async function createSlackChannel(customerData: {
   }
 }
 
-// async function sendInviteEmail(data: {
-//   customerEmail: string;
-//   customerName: string;
-//   channelName: string;
-//   projectKey: string;
-// }) {
-//   try {    
-//     const jiraUrl = `https://pfa.atlassian.net/jira/software/projects/${data.projectKey}/boards`; 
-//     const slackUrl = `https://slack.com/app_redirect?channel=${data.channelName}`;
-    
-//     console.log('Sending invitation email with details:');
-//     console.log('- To:', data.customerEmail);
-//     console.log('- Channel:', data.channelName);
-//     console.log('- Project:', data.projectKey);
-    
-//     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/sendInviteEmail`, {
-//       method: 'POST',
-//       headers: { 'Content-Type': 'application/json' },
-//       body: JSON.stringify({
-//         to: data.customerEmail,
-//         customerName: data.customerName,
-//         channelName: data.channelName,
-//         jiraUrl: jiraUrl,
-//         slackUrl: slackUrl
-//       }),
-//     });
-
-//     if (!response.ok) {
-//       const errorData = await response.text();
-//       console.error('Error sending invitation email:', errorData);
-//       // We'll log the error but continue with checkout to not block payment flow
-//     } else {
-//       const data = await response.json();
-//       console.log('Invitation email sent successfully:', data);
-//       return data;
-//     }
-//   } catch (error) {
-//     console.error('Failed to send invitation email:', error);
-//     // Log error but don't throw to prevent blocking the payment flow
-//   }
-// }
-
 async function sendProjectInfo(data: ProjectInfos) {
   try {
     console.log('Sending project information with details:');
@@ -216,7 +165,7 @@ export async function POST(request: NextRequest) {
   try {
     // Parse request body
     const body = await request.json();
-    const { selectedServices, customerFullName, customerEmail, subscriptionId, isSubscription } = body;
+    const { selectedServices, customerFullName, customerEmail, subscriptionId, isSubscription, clerkId } = body;
     
     // Validate email for all requests
     if (!customerEmail) {
@@ -227,6 +176,18 @@ export async function POST(request: NextRequest) {
     }
     
     let session;
+    
+    // Create metadata with clerk ID if available
+    const metadata: Record<string, string> = {
+      customerFullName: customerFullName || '',
+      customerEmail: customerEmail,
+      isSubscription: isSubscription ? 'true' : 'false',
+    };
+
+    // Add clerk ID to metadata if available
+    if (clerkId) {
+      metadata.clerkId = clerkId;
+    }
     
     // Handle subscription checkout
     if (isSubscription && subscriptionId) {
@@ -260,6 +221,11 @@ export async function POST(request: NextRequest) {
         },
       });
       
+      // Add subscription-specific metadata
+      metadata.subscriptionId = subscriptionId;
+      metadata.planName = selectedPlan.name;
+      metadata.planPrice = selectedPlan.price.toString();
+      
       // Create the subscription checkout session
       session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
@@ -273,14 +239,7 @@ export async function POST(request: NextRequest) {
         customer_email: customerEmail,
         success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${request.nextUrl.origin}/cancel`,
-        metadata: {
-          customerFullName: customerFullName,
-          subscriptionId: subscriptionId,
-          isSubscription: 'true',
-          customerEmail: customerEmail,
-          planName: selectedPlan.name,
-          planPrice: selectedPlan.price.toString(), // Updated from monthly_price
-        },
+        metadata: metadata,
       });
 
       const sessionSuffix = session.id.slice(-4).toUpperCase();
@@ -311,15 +270,6 @@ export async function POST(request: NextRequest) {
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
-
-      // Send invitation email
-      // await sendInviteEmail({
-      //   customerEmail,
-      //   customerName: customerFullName || '',
-      //   channelName: channelName,
-      //   projectKey: projectKey
-      // });
-
     } 
     // Handle one-time payment checkout
     else {
@@ -363,6 +313,10 @@ export async function POST(request: NextRequest) {
         };
       });
       
+      // Add one-time payment specific metadata
+      metadata.selectedServices = JSON.stringify(selectedServices).slice(0, 499);
+      metadata.totalAmount = totalPrice.toString();
+      
       session = await stripe.checkout.sessions.create({
         payment_method_types: ["card"],
         line_items: lineItems,
@@ -370,13 +324,7 @@ export async function POST(request: NextRequest) {
         customer_email: customerEmail,
         success_url: `${request.nextUrl.origin}/success?session_id={CHECKOUT_SESSION_ID}`,
         cancel_url: `${request.nextUrl.origin}/cancel`,
-        metadata: {
-          customerFullName: customerFullName,
-          selectedServices: JSON.stringify(selectedServices).slice(0, 499),
-          isSubscription: 'false',
-          customerEmail: customerEmail, // Add this line for redundancy
-          totalAmount: totalPrice.toString(), // Optional: Add this for more context
-        },
+        metadata: metadata,
       });
 
       // Create Jira project and Slack channel
@@ -408,19 +356,11 @@ export async function POST(request: NextRequest) {
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
         slackurl: `https://slack.com/app_redirect?channel=${channelName}`
       });
-
-      // Send invitation email
-      // await sendInviteEmail({
-      //   customerEmail,
-      //   customerName: customerFullName || '',
-      //   channelName: channelName,
-      //   projectKey: projectKey
-      // });
-
     }
 
     console.log('Customer Full Name:', customerFullName);
     console.log('Customer Email:', customerEmail);
+    console.log('Clerk ID:', clerkId || 'Not provided');
     console.log('Session Mode:', isSubscription ? 'subscription' : 'payment');
     
     return NextResponse.json({ id: session.id, url: session.url });
