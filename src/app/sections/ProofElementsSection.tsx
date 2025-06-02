@@ -15,7 +15,7 @@ const ProofElementsSection = () => {
     {
       id: 'item1',
       type: 'image',
-      image: '/images/portfolio/portfolio1.png',
+      image: '/images/portfolio/proof1.png',
       alt: 'Portfolio Project 1',
       layout: 'large',
       row: 1
@@ -23,7 +23,7 @@ const ProofElementsSection = () => {
     {
       id: 'item2',
       type: 'image',
-      image: '/images/portfolio/portfolio1.png',
+      image: '/images/portfolio/proof3.png',
       alt: 'Portfolio Project 2',
       layout: 'regular',
       row: 1
@@ -40,7 +40,7 @@ const ProofElementsSection = () => {
     {
       id: 'item4',
       type: 'image',
-      image: '/images/portfolio/portfolio1.png',
+      image: '/images/portfolio/proof2.png',
       alt: 'Portfolio Project 3',
       layout: 'large',
       row: 2
@@ -48,7 +48,7 @@ const ProofElementsSection = () => {
     {
       id: 'item5',
       type: 'image',
-      image: '/images/portfolio/portfolio1.png',
+      image: '/images/portfolio/proof4.png',
       alt: 'Portfolio Project 4',
       layout: 'regular',
       row: 3
@@ -110,7 +110,7 @@ const ProofElementsSection = () => {
           </p>
           
           <Link 
-            href="/documents/portfolio.pdf"
+            href="/documents/fullflow-folio.pdf" target='__blank'
             className="inline-block mt-6 px-8 py-3 rounded-full bg-gradient-to-r from-primary to-primary/50 hover:opacity-90 text-white font-medium transition-all"
           >
             View Recent Work
