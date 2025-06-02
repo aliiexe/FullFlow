@@ -11,13 +11,22 @@ import {
   X,
   Calendar,
   Info,
+  ChevronDown,
 } from "lucide-react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 
-// Define interfaces based on your API schema
+// Update the Project interface to include project-specific fields
+interface Project {
+  projectkey: string;
+  jiraurl: string;
+  slackurl: string;
+  description?: string; // Add description field to each project
+  status?: string; // Add status field to each project
+}
+
 interface UserPayment {
   payment_id: string;
   payment_amount: number;
@@ -33,14 +42,11 @@ interface UserData {
   user_fullname: string;
   user_email: string;
   clerk_id: string;
-  project_key: string | null;
+  projects: Project[];
   project_description?: string; // Added for project description
   project_status?: string; // Added for project status
   renewal_date?: string; // Added for subscription renewal date
   payments: UserPayment[];
-  // Additional fields that might be returned from the API
-  jira_url?: string;
-  slack_url?: string;
 }
 
 export default function Dashboard() {
@@ -52,6 +58,7 @@ export default function Dashboard() {
   >("subscription");
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
+  const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -92,8 +99,25 @@ export default function Dashboard() {
         }
 
         const result = await response.json();
+        console.log("Raw API response:", result);
+
+        // Process projects data if needed
+        if (result.data && result.data.projects) {
+          // Ensure each project has the required properties
+          result.data.projects = result.data.projects.map((project: any) => ({
+            ...project,
+            // Set default status and description if not provided
+            status:
+              project.status || result.data.project_status || "In Progress",
+            description:
+              project.description || result.data.project_description || "",
+          }));
+        }
+
+        // Now the data is in result.data instead of directly in the response
         setUserData(result.data);
         console.log("User data fetched:", result.data);
+        console.log("Projects count:", result.data.projects?.length || 0);
       } catch (err) {
         console.warn("Using mock user data:", err);
         // Provide mock user data similar to your API response
@@ -102,14 +126,18 @@ export default function Dashboard() {
           user_fullname: "Demo User",
           user_email: "demo@example.com",
           clerk_id: userId || "mock-clerk-id",
-          project_key: "DEMO-2024",
+          projects: [
+            {
+              projectkey: "DEMO-2024",
+              jiraurl:
+                "https://fullflow.atlassian.net/jira/software/projects/DEMO/boards",
+              slackurl: "https://slack.com/app_redirect?channel=demo-project",
+            },
+          ],
           project_description:
             "Website redesign with custom CMS integration and e-commerce functionality. Including responsive design and SEO optimization.",
           project_status: "In Progress",
           renewal_date: "2024-06-13", // Format: YYYY-MM-DD
-          jira_url:
-            "https://fullflow.atlassian.net/jira/software/projects/DEMO/boards",
-          slack_url: "https://slack.com/app_redirect?channel=demo-project",
           payments: [
             {
               payment_id: "mock-payment-1",
@@ -232,11 +260,17 @@ export default function Dashboard() {
     );
   }
 
+  // Current selected project (if any projects exist)
+  const selectedProject =
+    userData?.projects && userData.projects.length > 0
+      ? userData.projects[selectedProjectIndex]
+      : null;
+
   // Get subscription data from payments
   const subscriptionPayment = userData?.payments.find(
     (payment) =>
       payment.payment_type === "subscription" &&
-      (payment.payment_status === "active" || payment.payment_status === "canceled")
+      (payment.payment_status === "active" || payment.payment_status === "paid")
   );
 
   // Main dashboard
@@ -267,7 +301,7 @@ export default function Dashboard() {
           >
             Account
           </button>
-          {userData?.project_key && (
+          {userData?.projects && userData.projects.length > 0 && (
             <button
               onClick={() => setActiveTab("project")}
               className={`px-6 py-3 font-medium focus:outline-none ${
@@ -341,7 +375,8 @@ export default function Dashboard() {
                   <div className="flex justify-between items-baseline mb-4">
                     <div>
                       <h3 className="font-semibold text-white text-lg">
-                        {subscriptionPayment.subscription_tier_name || "Professional"}
+                        {subscriptionPayment.subscription_tier_name ||
+                          "Professional"}
                       </h3>
                       <p className="text-2xl font-bold text-white mt-1">
                         ${subscriptionPayment.payment_amount.toFixed(2)}/month
@@ -352,14 +387,15 @@ export default function Dashboard() {
                     </div>
                     <span
                       className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        subscriptionPayment.payment_status === "active"
+                        subscriptionPayment.payment_status === "active" ||
+                        subscriptionPayment.payment_status === "paid"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-red-500/20 text-red-400"
                       }`}
                     >
-                      {subscriptionPayment.payment_status === "active"
-                        ? "Active"
-                        : "Canceled"}
+                      {subscriptionPayment.payment_status === "canceled"
+                        ? "Canceled"
+                        : "Active"}
                     </span>
                   </div>
 
@@ -381,7 +417,8 @@ export default function Dashboard() {
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-white/10">
-                    {subscriptionPayment.payment_status === "active" ? (
+                    {subscriptionPayment.payment_status === "active" ||
+                    subscriptionPayment.payment_status === "paid" ? (
                       <button
                         onClick={() => setShowCancelModal(true)}
                         className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
@@ -400,101 +437,131 @@ export default function Dashboard() {
           </motion.div>
         )}
 
-        {activeTab === "project" && userData && userData.project_key && (
-          <motion.div
-            initial={{ opacity: 0, y: 10 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-          >
-            {/* Project Info Card */}
-            <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg mb-6">
-              <div className="p-6 border-b border-white/10">
-                <div className="flex justify-between items-center">
-                  <h2 className="text-xl font-semibold text-white">
-                    Project Information
-                  </h2>
-                  {userData.project_status && (
-                    <span
-                      className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        userData.project_status === "In Progress"
-                          ? "bg-blue-500/20 text-blue-400"
-                          : userData.project_status === "Completed"
-                          ? "bg-green-500/20 text-green-400"
-                          : "bg-amber-500/20 text-amber-400"
-                      }`}
-                    >
-                      {userData.project_status}
-                    </span>
-                  )}
-                </div>
-              </div>
-              <div className="p-6 space-y-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-1">
-                      Project Key
-                    </h3>
-                    <p className="text-white">{userData.project_key}</p>
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-400 mb-1">
-                      Client Email
-                    </h3>
-                    <p className="text-white">{userData.user_email}</p>
-                  </div>
-                </div>
-
-                {/* Project Description Section - Added per requirements */}
-                <div className="pt-4 border-t border-white/10">
+        {activeTab === "project" &&
+          userData &&
+          userData.projects &&
+          userData.projects.length > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              {/* Project Selection Buttons - replacing dropdown */}
+              {userData.projects.length > 1 && (
+                <div className="mb-6">
                   <h3 className="text-sm font-medium text-gray-400 mb-3">
-                    Project Description
+                    Select Project
                   </h3>
-                  <div className="p-4 bg-white/[0.02] rounded-lg">
-                    <p className="text-gray-300 leading-relaxed">
-                      {userData.project_description ||
-                        "No project description available. Please contact your account manager for more details."}
-                    </p>
+                  <div className="flex flex-wrap gap-2">
+                    {userData.projects.map((project, index) => (
+                      <button
+                        key={project.projectkey}
+                        onClick={() => setSelectedProjectIndex(index)}
+                        className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                          selectedProjectIndex === index
+                            ? "bg-indigo-600/80 text-white border border-indigo-500"
+                            : "bg-white/[0.03] text-gray-300 hover:bg-white/[0.05] hover:text-white border border-white/10"
+                        }`}
+                      >
+                        {project.projectkey}
+                      </button>
+                    ))}
                   </div>
                 </div>
+              )}
 
-                {(userData.jira_url || userData.slack_url) && (
-                  <div className="pt-6 border-t border-white/10">
-                    <h3 className="text-sm font-medium text-gray-400 mb-4">
-                      Project Resources
-                    </h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      {userData.jira_url && (
-                        <a
-                          href={userData.jira_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-3 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors"
-                        >
-                          <FileText className="mr-2 h-5 w-5" />
-                          Access Jira Project
-                          <ExternalLink className="ml-2 h-4 w-4" />
-                        </a>
-                      )}
-
-                      {userData.slack_url && (
-                        <a
-                          href={userData.slack_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-3 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors"
-                        >
-                          <FileText className="mr-2 h-5 w-5" />
-                          Access Slack Channel
-                          <ExternalLink className="ml-2 h-4 w-4" />
-                        </a>
-                      )}
+              {/* Project Info Card */}
+              {selectedProject && (
+                <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg mb-6">
+                  <div className="p-6 border-b border-white/10">
+                    <div className="flex justify-between items-center">
+                      <h2 className="text-xl font-semibold text-white">
+                        Project Information
+                      </h2>
+                      {/* Show project-specific status */}
+                      <span
+                        className={`px-3 py-1 text-sm font-medium rounded-full ${
+                          selectedProject.status === "In Progress"
+                            ? "bg-blue-500/20 text-blue-400"
+                            : selectedProject.status === "Completed"
+                            ? "bg-green-500/20 text-green-400"
+                            : "bg-amber-500/20 text-amber-400"
+                        }`}
+                      >
+                        {selectedProject.status || "Pending"}
+                      </span>
                     </div>
                   </div>
-                )}
-              </div>
-            </div>
-          </motion.div>
-        )}
+                  <div className="p-6 space-y-6">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-1">
+                          Project Key
+                        </h3>
+                        <p className="text-white">
+                          {selectedProject.projectkey}
+                        </p>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-400 mb-1">
+                          Client Email
+                        </h3>
+                        <p className="text-white">{userData.user_email}</p>
+                      </div>
+                    </div>
+
+                    {/* Project Description Section - Use project-specific description */}
+                    {selectedProject.description && (
+                      <div className="pt-4 border-t border-white/10">
+                        <h3 className="text-sm font-medium text-gray-400 mb-3">
+                          Project Description
+                        </h3>
+                        <div className="p-4 bg-white/[0.02] rounded-lg">
+                          <p className="text-gray-300 leading-relaxed">
+                            {selectedProject.description ||
+                              "No project description available. Please contact your account manager for more details."}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="pt-6 border-t border-white/10">
+                      <h3 className="text-sm font-medium text-gray-400 mb-4">
+                        Project Resources
+                      </h3>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {selectedProject.jiraurl && (
+                          <a
+                            href={selectedProject.jiraurl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-3 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors"
+                          >
+                            <FileText className="mr-2 h-5 w-5" />
+                            Access Jira Project
+                            <ExternalLink className="ml-2 h-4 w-4" />
+                          </a>
+                        )}
+
+                        {selectedProject.slackurl && (
+                          <a
+                            href={selectedProject.slackurl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-3 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors"
+                          >
+                            <FileText className="mr-2 h-5 w-5" />
+                            Access Slack Channel
+                            <ExternalLink className="ml-2 h-4 w-4" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </motion.div>
+          )}
 
         {activeTab === "billing" &&
           userData &&
@@ -556,7 +623,8 @@ export default function Dashboard() {
                           <td className="px-6 py-4">
                             <span
                               className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                payment.payment_status === "completed"
+                                payment.payment_status === "completed" ||
+                                payment.payment_status === "paid"
                                   ? "bg-green-500/20 text-green-400"
                                   : payment.payment_status === "active"
                                   ? "bg-blue-500/20 text-blue-400"
@@ -602,14 +670,16 @@ export default function Dashboard() {
             </div>
 
             <p className="text-gray-300 mb-4">
-              Are you sure you want to cancel your subscription? You'll lose access to your
-              Premium features at the end of your current billing period.
+              Are you sure you want to cancel your subscription? You'll lose
+              access to your Premium features at the end of your current billing
+              period.
             </p>
 
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
               <p className="text-amber-300 text-sm">
-                Your subscription will remain active until the end of your current billing cycle.
-                You can reactivate your subscription anytime before it expires.
+                Your subscription will remain active until the end of your
+                current billing cycle. You can reactivate your subscription
+                anytime before it expires.
               </p>
             </div>
 
