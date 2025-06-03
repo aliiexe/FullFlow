@@ -91,14 +91,14 @@ const HeroSection = () => {
                 <ShinyButton className="text-sm sm:text-base py-2.5 px-6">Schedule a Call</ShinyButton>
               </a>
               
-              <a href="https://docs.google.com/presentation/d/1NVvoPjrc1Zvxq4lFBUE4L1ZxClzX02ZWi3F3a32T9tc/edit?usp=sharing" target="_blank" rel="noopener noreferrer">
+              <Link href="/ceo">
                 <button className="text-sm sm:text-base py-2.5 px-6 bg-black/40 hover:bg-black/60 border border-primary/20 text-white rounded-full transition-all duration-300 flex items-center gap-2">
                   Who is the CEO
                   <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                     <path d="M7 17l9.2-9.2M17 17V7H7"/>
                   </svg>
                 </button>
-              </a>
+              </Link>
             </motion.div>
           </motion.div>
           
