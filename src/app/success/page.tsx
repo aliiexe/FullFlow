@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React from "react";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { CheckCircle, ArrowRight } from "lucide-react";
@@ -8,34 +8,8 @@ import Link from "next/link";
 
 export default function SuccessPage() {
   const searchParams = useSearchParams();
-  const session_id = searchParams.get("session_id");
-  const [sessionDetails, setSessionDetails] = useState<{
-    customer_email: string | null;
-    customer_name: string | null;
-    amount_total: number | null;
-  } | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (session_id) {
-      console.log("Fetching session details for session_id:", session_id); // Debugging
-      fetch(`/api/payment/session?session_id=${session_id}`)
-        .then((res) => res.json())
-        .then((data) => {
-          console.log("Session details fetched:", data); // Debugging
-          if (data.error) {
-            setError(data.error);
-          } else {
-            setSessionDetails(data);
-          }
-        })
-        .catch((err) => {
-          console.error("Error fetching session details:", err); // Debugging
-          setError("Error fetching session details.");
-        });
-    }
-  }, [session_id]);
-
+  const order_id = searchParams.get("order_id"); // PayPal parameter
+  
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-24">
       <motion.div
@@ -47,24 +21,11 @@ export default function SuccessPage() {
         <CheckCircle className="w-20 h-20 text-green-500 mx-auto mb-6" />
 
         <h1 className="text-3xl font-bold text-white mb-4">Payment Successful!</h1>
-
-        {error ? (
-          <p className="text-red-500">{error}</p>
-        ) : sessionDetails ? (
-          <>
-            <p className="text-gray-300 mb-2">
-              Thank you for your purchase, <strong>{sessionDetails.customer_name || "valued customer"}</strong>!
-            </p>
-            <p className="text-gray-300 mb-4 text-sm">
-              Confirmation sent to <strong>{sessionDetails.customer_email || "your email"}</strong>
-            </p>
-            <p className="text-gray-300 mb-8 text-xl">
-              Total Paid: <strong className="text-green-400">${(sessionDetails.amount_total! / 100).toFixed(2)}</strong>
-            </p>
-          </>
-        ) : (
-          <p className="text-gray-300 mb-8">Loading session details...</p>
-        )}
+        
+        <p className="text-gray-300 mb-6">
+          Thank you for your purchase! We've received your payment.
+          Your order ID is: <span className="font-mono text-indigo-300">{order_id}</span>
+        </p>
 
         <div className="space-y-4">
           <Link

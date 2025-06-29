@@ -1,11 +1,37 @@
 "use client";
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { XCircle, ArrowLeft } from 'lucide-react';
+import { XCircle, ArrowLeft, RefreshCcw } from 'lucide-react';
 import Link from 'next/link';
+import { useSearchParams, useRouter } from 'next/navigation';
 
 export default function CancelPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const paymentProcessor = searchParams.get("source") || "payment"; // "stripe", "paypal", or default
+  const reason = searchParams.get("reason");
+  
+  // Log cancel event for analytics (optional)
+  useEffect(() => {
+    console.log(`Payment canceled. Processor: ${paymentProcessor}, Reason: ${reason || "user cancelled"}`);
+    
+    // You could send this data to your analytics endpoint
+    // const logCancelEvent = async () => {
+    //   await fetch('/api/analytics/payment-cancel', {
+    //     method: 'POST',
+    //     body: JSON.stringify({ paymentProcessor, reason }),
+    //     headers: { 'Content-Type': 'application/json' },
+    //   });
+    // };
+    // logCancelEvent();
+  }, [paymentProcessor, reason]);
+  
+  // Return to pricing builder with previous settings (if any)
+  const handleRetryPayment = () => {
+    router.push('/#pricing');
+  };
+
   return (
     <div className="min-h-screen w-full flex flex-col items-center justify-center px-6 py-24">
       <motion.div
@@ -20,14 +46,24 @@ export default function CancelPage() {
           Payment Cancelled
         </h1>
         
-        <p className="text-gray-300 mb-8">
-          Your payment was cancelled. If you need any assistance or have questions about our services, please don't hesitate to contact us.
+        <p className="text-gray-300 mb-6">
+          Your payment was not completed. If you experienced any issues during checkout or have questions about our services, please don't hesitate to contact us.
         </p>
         
-        <Link href="/" className="flex items-center justify-center py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors">
-          <ArrowLeft className="w-4 h-4 mr-2" />
-          Return to Home
-        </Link>
+        <div className="space-y-4">
+          <button
+            onClick={handleRetryPayment}
+            className="flex items-center justify-center w-full py-3 px-4 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg transition-colors"
+          >
+            <RefreshCcw className="w-4 h-4 mr-2" />
+            Try Again
+          </button>
+          
+          <Link href="/" className="flex items-center justify-center py-3 px-4 bg-white/10 hover:bg-white/20 text-white rounded-lg transition-colors">
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Return to Home
+          </Link>
+        </div>
       </motion.div>
     </div>
   );

@@ -9,7 +9,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
-import CheckoutButton from "../api/payment/CheckoutButton";
+import PayPalButton from "../../components/PayPalButton";
 import { useAuth, SignInButton } from "@clerk/nextjs"; // Import SignInButton
 
 // Define types based on your API schema
@@ -550,11 +550,11 @@ const PricingBuilder: React.FC = () => {
                   </div>
                   <div className="mt-6">
                     {isSignedIn ? (
-                      <CheckoutButton
+                      <PayPalButton
                         selectedServices={selectedServices}
                         totalPrice={totalPrice}
                         isSubscription={false}
-                        clerkId={userId || ""} // Pass the Clerk ID
+                        clerkId={userId || ""}
                       />
                     ) : (
                       <SignInButton mode="modal">
@@ -701,7 +701,7 @@ const PricingBuilder: React.FC = () => {
                     </div>
 
                     {isSignedIn ? (
-                      <CheckoutButton
+                      <PayPalButton
                         selectedServices={[]}
                         totalPrice={selectedPlan.price}
                         subscriptionId={selectedPlan.id}
