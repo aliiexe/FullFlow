@@ -37,16 +37,28 @@ interface UserPayment {
   subscription_tier_name: string | null;
 }
 
+// Update UserData interface
 interface UserData {
   user_id: string;
   user_fullname: string;
   user_email: string;
   clerk_id: string;
   projects: Project[];
-  project_description?: string; // Added for project description
-  project_status?: string; // Added for project status
-  renewal_date?: string; // Added for subscription renewal date
+  project_description?: string;
+  project_status?: string;
+  renewal_date?: string;
   payments: UserPayment[];
+  subscriptions: UserSubscription[]; // New array for subscriptions
+}
+
+// Add new interface for subscriptions
+interface UserSubscription {
+  subscription_id: string;
+  subscription_amount: number;
+  subscription_date: string;
+  subscription_status: string;
+  subscription_tier_name: string;
+  renewal_date?: string;
 }
 
 export default function Dashboard() {
@@ -158,6 +170,16 @@ export default function Dashboard() {
               subscription_tier_name: "Professional Plan",
             },
           ],
+          subscriptions: [
+            {
+              subscription_id: "mock-subscription-1",
+              subscription_amount: 39.99,
+              subscription_date: new Date().toISOString(),
+              subscription_status: "active",
+              subscription_tier_name: "Professional Plan",
+              renewal_date: "2024-06-13",
+            },
+          ],
         });
       }
     } catch (err) {
@@ -192,7 +214,10 @@ export default function Dashboard() {
           }
           return payment;
         });
-        setUserData({ ...userData, payments: updatedPayments });
+        const updatedSubscriptions = userData.subscriptions.map((sub) => {
+          return { ...sub, subscription_status: "canceled" };
+        });
+        setUserData({ ...userData, payments: updatedPayments, subscriptions: updatedSubscriptions });
       }
       setShowCancelModal(false);
     } catch (error) {
@@ -267,10 +292,8 @@ export default function Dashboard() {
       : null;
 
   // Get subscription data from payments
-  const subscriptionPayment = userData?.payments.find(
-    (payment) =>
-      payment.payment_type === "subscription" &&
-      (payment.payment_status === "active" || payment.payment_status === "paid")
+  const activeSubscription = userData?.subscriptions?.find(
+    (sub) => sub.subscription_status === "active" || sub.subscription_status === "paid"
   );
 
   // Main dashboard
@@ -359,7 +382,7 @@ export default function Dashboard() {
             </div>
 
             {/* Subscription Card - similar to the image */}
-            {subscriptionPayment && (
+            {activeSubscription && (
               <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-white">
@@ -367,7 +390,7 @@ export default function Dashboard() {
                   </h2>
                   {userData.renewal_date && (
                     <span className="text-sm text-gray-400">
-                      Renews {formatDate(userData.renewal_date)}
+                      Renews {formatDate(activeSubscription.renewal_date)}
                     </span>
                   )}
                 </div>
@@ -375,11 +398,11 @@ export default function Dashboard() {
                   <div className="flex justify-between items-baseline mb-4">
                     <div>
                       <h3 className="font-semibold text-white text-lg">
-                        {subscriptionPayment.subscription_tier_name ||
+                        {activeSubscription.subscription_tier_name ||
                           "Professional"}
                       </h3>
                       <p className="text-2xl font-bold text-white mt-1">
-                        ${subscriptionPayment.payment_amount.toFixed(2)}/month
+                        ${activeSubscription.subscription_amount.toFixed(2)}/month
                       </p>
                       <p className="text-sm text-gray-400 mt-1">
                         4 included users
@@ -387,13 +410,13 @@ export default function Dashboard() {
                     </div>
                     <span
                       className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        subscriptionPayment.payment_status === "active" ||
-                        subscriptionPayment.payment_status === "paid"
+                        activeSubscription.subscription_status === "active" ||
+                        activeSubscription.subscription_status === "paid"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-red-500/20 text-red-400"
                       }`}
                     >
-                      {subscriptionPayment.payment_status === "canceled"
+                      {activeSubscription.subscription_status === "canceled"
                         ? "Canceled"
                         : "Active"}
                     </span>
@@ -417,8 +440,8 @@ export default function Dashboard() {
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-white/10">
-                    {subscriptionPayment.payment_status === "active" ||
-                    subscriptionPayment.payment_status === "paid" ? (
+                    {activeSubscription.subscription_status === "active" ||
+                    activeSubscription.subscription_status === "paid" ? (
                       <button
                         onClick={() => setShowCancelModal(true)}
                         className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
