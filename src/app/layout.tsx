@@ -53,40 +53,38 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <>
-      {/* Immediately execute polyfill script */}
-      <script dangerouslySetInnerHTML={{ __html: globalPolyfill }} />
-      <ClerkProvider
-        telemetry={{
-          disabled: true,
-          debug: false,
-        }}
+    <html lang="en">
+      <head>
+        {/* Polyfill script properly placed inside head */}
+        <script dangerouslySetInnerHTML={{ __html: globalPolyfill }} />
+        <Script id="clerk-env-polyfill" strategy="beforeInteractive">
+          {`
+            if (typeof window !== 'undefined' && !window.process) {
+              window.process = { 
+                env: {
+                  CLERK_TELEMETRY_DEBUG: "false",
+                  CLERK_TELEMETRY_DISABLED: "true",
+                  NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
+                  NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true"
+                } 
+              };
+            }
+          `}
+        </Script>
+      </head>
+      <body
+        className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <html lang="en">
-          <head>
-            <Script id="clerk-env-polyfill" strategy="beforeInteractive">
-              {`
-                if (typeof window !== 'undefined' && !window.process) {
-                  window.process = { 
-                    env: {
-                      CLERK_TELEMETRY_DEBUG: "false",
-                      CLERK_TELEMETRY_DISABLED: "true",
-                      NEXT_PUBLIC_CLERK_TELEMETRY_DEBUG: "false",
-                      NEXT_PUBLIC_CLERK_TELEMETRY_DISABLED: "true"
-                    } 
-                  };
-                }
-              `}
-            </Script>
-          </head>
-          <body
-            className={`${geistSans.variable} ${geistMono.variable} antialiased`}
-          >
-            <GrainEffect />
-            {children}
-          </body>
-        </html>
-      </ClerkProvider>
-    </>
+        <ClerkProvider
+          telemetry={{
+            disabled: true,
+            debug: false,
+          }}
+        >
+          <GrainEffect />
+          {children}
+        </ClerkProvider>
+      </body>
+    </html>
   );
 }

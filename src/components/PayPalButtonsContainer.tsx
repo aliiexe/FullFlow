@@ -1,18 +1,19 @@
 "use client";
 
 import React from "react";
-import { PayPalScriptProvider, PayPalButtons } from "@paypal/react-paypal-js";
+import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
+import { User } from "@clerk/nextjs/server";
 
-interface PayPalButtonsContainerProps {
+export interface PayPalButtonsContainerProps {
   selectedServices: string[];
   totalPrice: number;
   disabled?: boolean;
   subscriptionId?: string;
   isSubscription?: boolean;
-  clerkId: string;
-  user: any;
-  setIsLoading: (value: boolean) => void;
-  setError: (value: string | null) => void;
+  clerkId?: string;
+  user: User;
+  setIsLoading: (isLoading: boolean) => void;
+  setError: (error: string | null) => void;
 }
 
 export default function PayPalButtonsContainer({
@@ -33,6 +34,7 @@ export default function PayPalButtonsContainer({
   // Initial options for PayPal
   const initialOptions = {
     "client-id":
+      process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ||
       "Aac4nJ2_mL1I4234hyKJo9O3Vs7rTdo0COz-J1CCVW6y35PmBucM-sSZl-ndsSUdqFLnI5ZjEhOeLE3S",
     currency: "USD",
     intent: "capture",
@@ -70,8 +72,6 @@ export default function PayPalButtonsContainer({
       console.error("Order creation error:", err);
       setError(err instanceof Error ? err.message : "Failed to create order");
       return null;
-    } finally {
-      setIsLoading(false);
     }
   };
 
@@ -83,11 +83,15 @@ export default function PayPalButtonsContainer({
       const captureResponse = await fetch("/api/payment/capture-paypal", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderID: data.orderID }),
+        body: JSON.stringify({
+          orderID: data.orderID,
+          isSubscription,
+        }),
       });
 
       if (!captureResponse.ok) {
         const errorText = await captureResponse.text();
+        console.error("Capture failed:", errorText);
         throw new Error(`Payment capture failed: ${errorText}`);
       }
 
@@ -130,6 +134,7 @@ export default function PayPalButtonsContainer({
           label: "pay",
         }}
         disabled={disabled}
+        forceReRender={[isSubscription, totalPrice, disabled]}
         createOrder={createOrder}
         onApprove={onApprove}
         onCancel={onCancel}
