@@ -55,9 +55,11 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {/* Polyfill script properly placed inside head */}
-        <script dangerouslySetInnerHTML={{ __html: globalPolyfill }} />
-        <Script id="clerk-env-polyfill" strategy="beforeInteractive">
+        {/* Add async attribute to the inline script */}
+        <script async dangerouslySetInnerHTML={{ __html: globalPolyfill }} />
+
+        {/* Change strategy from beforeInteractive to afterInteractive */}
+        <Script id="clerk-env-polyfill" strategy="afterInteractive">
           {`
             if (typeof window !== 'undefined' && !window.process) {
               window.process = { 

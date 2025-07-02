@@ -1,5 +1,12 @@
 import dynamic from "next/dynamic";
 import { useState } from "react";
+import { User } from "@clerk/nextjs/server"; // Import User type
+
+// Define prop types
+interface CheckoutFormProps {
+  user: User;
+  selectedServices: string[];
+}
 
 // Dynamically import the PayPalButtonsContainer with SSR disabled
 const PayPalButtonsContainer = dynamic(
@@ -7,8 +14,11 @@ const PayPalButtonsContainer = dynamic(
   { ssr: false }
 );
 
-// Your checkout form component
-export default function CheckoutForm({ user, selectedServices }) {
+// Add type annotation to the props
+export default function CheckoutForm({
+  user,
+  selectedServices,
+}: CheckoutFormProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
