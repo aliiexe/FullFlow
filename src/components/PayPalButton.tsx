@@ -7,9 +7,11 @@ import { useAuth, useUser } from "@clerk/nextjs";
 // Import PayPal components with dynamic import to avoid SSR issues
 import dynamic from "next/dynamic";
 
-const PayPalButtonsContainer = dynamic(() => import("./PayPalButtonsContainer"), {
-  ssr: false,
-});
+// Dynamically import the PayPalButtonsContainer with SSR disabled
+const PayPalButtonsContainer = dynamic(
+  () => import("./PayPalButtonsContainer"),
+  { ssr: false }
+);
 
 interface PayPalButtonProps {
   selectedServices: string[];
@@ -30,7 +32,7 @@ export default function PayPalButton({
 }: PayPalButtonProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  
+
   const { isSignedIn } = useAuth();
   const { user } = useUser();
 
@@ -60,7 +62,7 @@ export default function PayPalButton({
           <Loader2 className="w-5 h-5 mr-2 animate-spin" /> Processing...
         </button>
       ) : (
-        <PayPalButtonsContainer 
+        <PayPalButtonsContainer
           selectedServices={selectedServices}
           totalPrice={totalPrice}
           disabled={disabled}
