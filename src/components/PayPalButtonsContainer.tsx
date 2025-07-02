@@ -2,7 +2,8 @@
 
 import React from "react";
 import { PayPalButtons, PayPalScriptProvider } from "@paypal/react-paypal-js";
-import { User } from "@clerk/nextjs/server";
+// Import the client-side UserResource type instead of server User type
+import { UserResource } from "@clerk/types";
 
 export interface PayPalButtonsContainerProps {
   selectedServices: string[];
@@ -11,7 +12,7 @@ export interface PayPalButtonsContainerProps {
   subscriptionId?: string;
   isSubscription?: boolean;
   clerkId?: string;
-  user: User;
+  user: UserResource; // Updated to use UserResource instead of User
   setIsLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
 }
@@ -27,13 +28,14 @@ export default function PayPalButtonsContainer({
   setIsLoading,
   setError,
 }: PayPalButtonsContainerProps) {
-  const customerEmail = user.primaryEmailAddress?.emailAddress || "";
+  // Access properties that are available on UserResource
+  const customerEmail = user?.primaryEmailAddress?.emailAddress || "";
   const customerFullName =
-    user.fullName || `${user.firstName || ""} ${user.lastName || ""}`.trim();
+    user?.fullName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
 
   // Initial options for PayPal
   const initialOptions = {
-    "client-id":
+    clientId:
       process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ||
       "Aac4nJ2_mL1I4234hyKJo9O3Vs7rTdo0COz-J1CCVW6y35PmBucM-sSZl-ndsSUdqFLnI5ZjEhOeLE3S",
     currency: "USD",
