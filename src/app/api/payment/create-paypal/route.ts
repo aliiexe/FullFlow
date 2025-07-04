@@ -257,14 +257,12 @@ export async function POST(request: NextRequest) {
       intent: "CAPTURE",
       purchase_units: [
         {
-          amount: {
-            currency_code: "USD",
-            value: amount,
-          },
+          amount: { currency_code: "USD", value: amount },
           description: isSubscription
             ? `Monthly Subscription - Full Flow (${customerEmail})`
             : `Services: ${selectedServices?.length || 0} items (${customerEmail})`,
           custom_id: customId,
+          reference_id: Array.isArray(selectedServices) ? selectedServices.join(",") : "",
         },
       ],
       application_context: {

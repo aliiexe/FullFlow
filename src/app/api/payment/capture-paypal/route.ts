@@ -108,8 +108,12 @@ export async function POST(request: NextRequest) {
 
       // Extract clerk ID from custom_id (format: "clerkId_timestamp")
       const clerkIdMatch = customId.match(/^([^_]+)_/);
-      if (clerkIdMatch && clerkIdMatch[1] !== 'guest') {
-        paymentDetails.clerkId = clerkIdMatch[1];
+      const clerkId = (clerkIdMatch && clerkIdMatch[1] !== 'guest') ? clerkIdMatch[1] : '';
+
+      // Extract selected services from reference_id if available
+      const referenceId = orderDetails.purchase_units[0]?.reference_id || "";
+      if (referenceId) {
+        paymentDetails.selectedServices = referenceId.split(",");
       }
     }
 
@@ -135,6 +139,19 @@ export async function POST(request: NextRequest) {
     } catch (saveError) {
       console.error("[DEBUG] Error saving SANDBOX payment:", saveError);
     }
+
+    // When building deliverablePaymentData:
+    const deliverablePaymentData = {
+      clerk_id: paymentDetails.clerkId || '', // Make sure this is the real user ID!
+      email: paymentDetails.customerEmail,
+      fullname: paymentDetails.customerName || '',
+      payment_method: 'PayPal',
+      status: 'paid',
+      transaction_id: paymentDetails.captureId || paymentDetails.orderId,
+      deliverable_ids: paymentDetails.selectedServices
+    };
+
+    console.log("[DEBUG] Deliverable payment data:", deliverablePaymentData);
 
     return NextResponse.json({
       status: "ORDER_CAPTURED",
