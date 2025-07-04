@@ -117,49 +117,41 @@ export default function PayPalButtonsContainer({
     setIsLoading(true);
     setError(null);
     console.log("[DEBUG] onApprove called with data:", data);
-    
     try {
       console.log("[DEBUG] Sending capture request for orderID:", data.orderID);
-      
       const captureResponse = await fetch("/api/payment/capture-paypal", {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "x-clerk-id": actualClerkId
+          "x-clerk-id": clerkId || ""
         },
         body: JSON.stringify({
           orderID: data.orderID,
           isSubscription,
+          subscriptionId,
         }),
       });
-
-      console.log("[DEBUG] Received response from capture-paypal endpoint", captureResponse.status);
-      
+      console.log("[DEBUG] Received response from capture-paypal endpoint", captureResponse);
       if (!captureResponse.ok) {
         const errorText = await captureResponse.text();
         console.error("[DEBUG] Capture failed:", errorText);
         throw new Error(`Payment capture failed: ${errorText}`);
       }
-
       const captureResult = await captureResponse.json();
       console.log("[DEBUG] Payment captured successfully:", captureResult);
-      
       setError(null);
-      
-      // Show success message briefly before redirect
       setTimeout(() => {
         const successUrl = `/success?order_id=${data.orderID}&amount=${captureResult.amount}&currency=${captureResult.currency}`;
         console.log("[DEBUG] Redirecting to success page:", successUrl);
         window.location.href = successUrl;
       }, 1000);
-      
     } catch (err) {
       console.error("[DEBUG] Payment approval error:", err);
       setError(
         err instanceof Error ? err.message : "Payment processing failed"
       );
-    } finally {
       setIsLoading(false);
+    } finally {
       console.log("[DEBUG] Finished onApprove");
     }
   };

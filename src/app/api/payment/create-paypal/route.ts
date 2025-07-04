@@ -50,19 +50,19 @@ async function createJiraProject(customerData: {
 }) {
   try {
     const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
-    
+
     const projectKey = `PRJ${sessionSuffix}`;
-    
+
     const companyName = `PROJECT ${sessionSuffix}`;
-    
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         customerEmail: customerData.customerEmail,
         customerName: customerData.customerName,
-        companyName: companyName, 
-        projectKey: projectKey, 
+        companyName: companyName,
+        projectKey: projectKey,
         isSubscription: customerData.isSubscription,
         subscriptionId: customerData.subscriptionId,
         selectedServices: customerData.selectedServices,
@@ -94,12 +94,12 @@ async function createSlackChannel(customerData: {
   try {
     // Extract last 4 characters from session ID and convert to uppercase
     const sessionSuffix = customerData.sessionId.slice(-4).toLowerCase();
-    
+
     // Create Slack channel name with PRJ prefix and session ID suffix
     const channelName = `prj-${sessionSuffix}`;
-    
+
     console.log('Creating Slack channel:', channelName);
-    
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -196,7 +196,7 @@ export async function POST(request: NextRequest) {
 
     // Calculate the correct amount based on subscription or selected services
     let amount = "150.00"; // Default amount
-    
+
     let selectedDeliverableNames: string[] = [];
     let selectedPlanName: string | null = null;
 
@@ -252,6 +252,16 @@ export async function POST(request: NextRequest) {
     // Use a simple custom_id that's within PayPal's length limits
     const customId = `${clerkId || 'guest'}_${Date.now()}`;
 
+    // Ensure reference_id always has a valid value
+    let referenceId = "";
+    if (isSubscription && subscriptionId) {
+      referenceId = `subscription_${subscriptionId}`;
+    } else if (selectedServices && Array.isArray(selectedServices) && selectedServices.length > 0) {
+      referenceId = selectedServices.join(",");
+    } else {
+      referenceId = "default_purchase";
+    }
+
     // Create order data - simplified and clean for SANDBOX
     const orderData = {
       intent: "CAPTURE",
@@ -262,7 +272,7 @@ export async function POST(request: NextRequest) {
             ? `Monthly Subscription - Full Flow (${customerEmail})`
             : `Services: ${selectedServices?.length || 0} items (${customerEmail})`,
           custom_id: customId,
-          reference_id: Array.isArray(selectedServices) ? selectedServices.join(",") : "",
+          reference_id: referenceId,
         },
       ],
       application_context: {
@@ -274,7 +284,7 @@ export async function POST(request: NextRequest) {
     };
 
     console.log("[DEBUG] Creating PayPal SANDBOX order with data:", JSON.stringify(orderData, null, 2));
-    
+
     // CREATE ORDER IN SANDBOX
     const orderResponse = await fetch("https://api-m.sandbox.paypal.com/v2/checkout/orders", {
       method: "POST",
@@ -337,7 +347,7 @@ export async function POST(request: NextRequest) {
     console.log('[DEBUG] Customer Email:', customerEmail);
     console.log('[DEBUG] Clerk ID:', clerkId || 'Not provided');
     console.log('[DEBUG] Payment Mode:', isSubscription ? 'subscription' : 'payment');
-    
+
     // When returning the order creation response, include these for later use if needed
     return NextResponse.json({
       id: orderResult.id,
