@@ -1,4 +1,3 @@
-//// filepath: c:\Users\abour\Documents\ProjectsF\full-flow\src\app\api\payment\capture-paypal\route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,8 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/capture-paypal called");
   try {
-    const { orderID } = await request.json();
-    console.log("[DEBUG] Request orderID:", orderID);
+    const { orderID, isSubscription } = await request.json();
+    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription);
 
     if (!orderID) {
       console.error("[DEBUG] Missing orderID");
@@ -41,6 +40,22 @@ export async function POST(request: NextRequest) {
     const { access_token } = await authResponse.json();
     console.log("[DEBUG] Got PayPal access token");
 
+    // First, get the order details to extract customer information
+    console.log("[DEBUG] Fetching order details for:", orderID);
+    const orderDetailsResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}`, {
+      method: "GET",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${access_token}`,
+      },
+    });
+
+    let orderDetails = null;
+    if (orderDetailsResponse.ok) {
+      orderDetails = await orderDetailsResponse.json();
+      console.log("[DEBUG] Order details retrieved:", orderDetails);
+    }
+
     // Capture the order
     console.log("[DEBUG] Capturing PayPal order:", orderID);
     const captureResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`, {
@@ -70,21 +85,32 @@ export async function POST(request: NextRequest) {
       customerEmail: "",
       customerName: "",
       selectedServices: [],
-      isSubscription: false
+      isSubscription: isSubscription || false,
+      customId: captureResult.purchase_units[0]?.custom_id || "",
+      clerkId: ""
     };
 
-    // Extract custom data if available
-    try {
-      const customId = captureResult.purchase_units[0]?.custom_id;
-      if (customId) {
-        const customData = JSON.parse(customId);
-        paymentDetails.customerEmail = customData.customerEmail || "";
-        paymentDetails.customerName = customData.customerFullName || "";
-        paymentDetails.selectedServices = customData.selectedServices || [];
-        paymentDetails.isSubscription = customData.isSubscription || false;
+    // Extract customer data from order details or description
+    if (orderDetails) {
+      const description = orderDetails.purchase_units[0]?.description || "";
+      const customId = orderDetails.purchase_units[0]?.custom_id || "";
+      
+      // Extract email from description (format: "Services: X items (email@example.com)")
+      const emailMatch = description.match(/\(([^)]+@[^)]+)\)/);
+      if (emailMatch) {
+        paymentDetails.customerEmail = emailMatch[1];
       }
-    } catch (e) {
-      console.error("[DEBUG] Error parsing custom data:", e);
+
+      // Extract customer name from payer info if available
+      if (orderDetails.payer?.name) {
+        paymentDetails.customerName = `${orderDetails.payer.name.given_name || ''} ${orderDetails.payer.name.surname || ''}`.trim();
+      }
+
+      // Extract clerk ID from custom_id (format: "clerkId_timestamp")
+      const clerkIdMatch = customId.match(/^([^_]+)_/);
+      if (clerkIdMatch && clerkIdMatch[1] !== 'guest') {
+        paymentDetails.clerkId = clerkIdMatch[1];
+      }
     }
 
     console.log("[DEBUG] Payment details to save:", paymentDetails);
@@ -96,7 +122,7 @@ export async function POST(request: NextRequest) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           ...paymentDetails,
-          clerkId: request.headers.get("x-clerk-id") || ""
+          clerkId: paymentDetails.clerkId || request.headers.get("x-clerk-id") || ""
         }),
       });
 

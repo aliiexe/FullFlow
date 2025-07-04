@@ -1,4 +1,3 @@
-//// filepath: c:\Users\abour\Documents\ProjectsF\full-flow\src\app\api\payment\create-paypal\route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -9,11 +8,16 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     console.log("[DEBUG] Request body:", body);
-    const { selectedServices, customerFullName, customerEmail, isSubscription } = body;
+    const { selectedServices, customerFullName, customerEmail, isSubscription, subscriptionId, clerkId, totalPrice } = body;
 
     if (!customerEmail) {
       console.error("[DEBUG] Missing customerEmail");
       return NextResponse.json({ error: "Customer email is required" }, { status: 400 });
+    }
+
+    if (!totalPrice || totalPrice <= 0) {
+      console.error("[DEBUG] Invalid totalPrice:", totalPrice);
+      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
     }
 
     // Check if PayPal credentials are configured
@@ -42,10 +46,22 @@ export async function POST(request: NextRequest) {
     const { access_token } = await authResponse.json();
     console.log("[DEBUG] Got PayPal access token");
 
-    // Calculate the correct amount based on selected services
-    const amount = isSubscription ? "99.00" : "150.00";
+    // Calculate the correct amount - ensure it's a valid decimal string
+    let amount = "150.00"; // Default amount
+    
+    if (isSubscription) {
+      amount = "99.00"; // Default subscription amount
+    } else if (totalPrice) {
+      // Ensure the amount is properly formatted as a decimal string
+      amount = parseFloat(totalPrice).toFixed(2);
+    }
 
-    // Create order data - REMOVED redirect URLs to prevent about:blank issue
+    console.log("[DEBUG] Using amount:", amount);
+
+    // Use a simple custom_id that's within PayPal's length limits
+    const customId = `${clerkId || 'guest'}_${Date.now()}`;
+
+    // Create order data - simplified and clean
     const orderData = {
       intent: "CAPTURE",
       purchase_units: [
@@ -55,20 +71,21 @@ export async function POST(request: NextRequest) {
             value: amount,
           },
           description: isSubscription
-            ? `Monthly Subscription - Full Flow`
-            : `Services: ${selectedServices.join(", ")}`,
-          custom_id: customerEmail,
+            ? `Monthly Subscription - Full Flow (${customerEmail})`
+            : `Services: ${selectedServices?.length || 0} items (${customerEmail})`,
+          custom_id: customId,
         },
       ],
       application_context: {
         brand_name: "Full Flow",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
-        // REMOVED return_url and cancel_url - let PayPal SDK handle redirects
+        // Remove return_url and cancel_url to prevent about:blank issue
       },
     };
 
-    console.log("[DEBUG] Creating PayPal order with data:", orderData);
+    console.log("[DEBUG] Creating PayPal order with data:", JSON.stringify(orderData, null, 2));
+    
     const orderResponse = await fetch("https://api-m.sandbox.paypal.com/v2/checkout/orders", {
       method: "POST",
       headers: {
@@ -87,10 +104,16 @@ export async function POST(request: NextRequest) {
     const orderResult = await orderResponse.json();
     console.log("[DEBUG] PayPal order created successfully:", orderResult);
 
+    // Validate the response has the required fields
+    if (!orderResult.id) {
+      throw new Error("PayPal order creation failed: No order ID returned");
+    }
+    
     return NextResponse.json({
       id: orderResult.id,
       status: orderResult.status,
-      links: orderResult.links
+      links: orderResult.links,
+      custom_id: customId
     });
 
   } catch (error) {
