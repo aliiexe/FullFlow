@@ -44,6 +44,15 @@ export default function PayPalButton({
     );
   }
 
+  // Validate PayPal configuration
+  if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
+    return (
+      <div className="text-red-400 text-sm">
+        PayPal is not configured. Please contact support.
+      </div>
+    );
+  }
+
   return (
     <div className="w-full">
       {error && (

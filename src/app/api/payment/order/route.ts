@@ -12,12 +12,17 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    // Check if PayPal credentials are configured
+    if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
+      throw new Error("PayPal credentials not configured");
+    }
+
     // Get access token from PayPal
     const authResponse = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded",
-        "Authorization": `Basic ${Buffer.from(`${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || ""}:${process.env.PAYPAL_SECRET || ""}`).toString('base64')}`,
+        "Authorization": `Basic ${Buffer.from(`${process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID}:${process.env.PAYPAL_SECRET}`).toString('base64')}`,
       },
       body: "grant_type=client_credentials",
     });
@@ -39,6 +44,7 @@ export async function GET(request: NextRequest) {
       method: "GET",
       headers: {
         "Authorization": `Bearer ${access_token}`,
+        "Content-Type": "application/json"
       }
     });
     
@@ -64,7 +70,6 @@ export async function GET(request: NextRequest) {
     const { customerEmail = "", customerFullName = "" } = customData as any;
     const amount = orderDetails.purchase_units?.[0]?.amount?.value || "0";
     
-    // Fix: Proper currency amount conversion
     // Parse as float first, then multiply by 100 and round to ensure integer cents
     const amountInCents = Math.round(parseFloat(amount) * 100);
     

@@ -1,4 +1,3 @@
-//// filepath: c:\Users\abour\Documents\ProjectsF\full-flow\src\app\api\payment\create-paypal\route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -9,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     console.log("[DEBUG] Request body:", body);
-    const { selectedServices, customerFullName, customerEmail, isSubscription } = body;
+    const { selectedServices, customerFullName, customerEmail, isSubscription, subscriptionId, clerkId } = body;
 
     if (!customerEmail) {
       console.error("[DEBUG] Missing customerEmail");
@@ -42,10 +41,29 @@ export async function POST(request: NextRequest) {
     const { access_token } = await authResponse.json();
     console.log("[DEBUG] Got PayPal access token");
 
-    // Calculate the correct amount based on selected services
-    const amount = isSubscription ? "99.00" : "150.00";
+    // Calculate the correct amount based on selected services or subscription
+    let amount = "150.00"; // Default amount
+    
+    if (isSubscription) {
+      // For subscriptions, use a fixed amount or get from subscriptionId
+      amount = "99.00"; // Default subscription amount
+    } else {
+      // For one-time payments, calculate based on selected services
+      // You might want to fetch actual prices from your API
+      amount = "150.00";
+    }
 
-    // Create order data - REMOVED redirect URLs to prevent about:blank issue
+    // Create custom data to pass with the order
+    const customData = JSON.stringify({
+      selectedServices: selectedServices || [],
+      customerEmail,
+      customerFullName,
+      isSubscription,
+      subscriptionId,
+      clerkId
+    });
+
+    // Create order data
     const orderData = {
       intent: "CAPTURE",
       purchase_units: [
@@ -56,15 +74,16 @@ export async function POST(request: NextRequest) {
           },
           description: isSubscription
             ? `Monthly Subscription - Full Flow`
-            : `Services: ${selectedServices.join(", ")}`,
-          custom_id: customerEmail,
+            : `Services: ${selectedServices?.join(", ") || "Custom Services"}`,
+          custom_id: customData, // Store custom data here
         },
       ],
       application_context: {
         brand_name: "Full Flow",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
-        // REMOVED return_url and cancel_url - let PayPal SDK handle redirects
+        return_url: `${request.nextUrl.origin}/success`,
+        cancel_url: `${request.nextUrl.origin}/cancel?source=paypal`,
       },
     };
 

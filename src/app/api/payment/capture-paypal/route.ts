@@ -1,4 +1,3 @@
-//// filepath: c:\Users\abour\Documents\ProjectsF\full-flow\src\app\api\payment\capture-paypal\route.ts
 import { NextRequest, NextResponse } from "next/server";
 
 /**
@@ -7,8 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/capture-paypal called");
   try {
-    const { orderID } = await request.json();
-    console.log("[DEBUG] Request orderID:", orderID);
+    const { orderID, isSubscription } = await request.json();
+    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription);
 
     if (!orderID) {
       console.error("[DEBUG] Missing orderID");
