@@ -31,6 +31,9 @@ export default function PayPalButtonsContainer({
   const customerEmail = user?.primaryEmailAddress?.emailAddress || "";
   const customerFullName =
     user?.fullName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
+  
+  // Use the actual Clerk user ID instead of the prop
+  const actualClerkId = user?.id || clerkId || "";
 
   // Initial options for PayPal - SANDBOX CONFIGURATION
   const initialOptions = {
@@ -58,7 +61,7 @@ export default function PayPalButtonsContainer({
         customerEmail,
         isSubscription,
         subscriptionId,
-        clerkId,
+        clerkId: actualClerkId,
         totalPrice
       });
 
@@ -66,7 +69,7 @@ export default function PayPalButtonsContainer({
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "x-clerk-id": clerkId || ""
+          "x-clerk-id": actualClerkId
         },
         body: JSON.stringify({
           selectedServices,
@@ -74,7 +77,7 @@ export default function PayPalButtonsContainer({
           customerEmail,
           subscriptionId,
           isSubscription,
-          clerkId,
+          clerkId: actualClerkId,
           totalPrice
         }),
       });
@@ -122,7 +125,7 @@ export default function PayPalButtonsContainer({
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
-          "x-clerk-id": clerkId || ""
+          "x-clerk-id": actualClerkId
         },
         body: JSON.stringify({
           orderID: data.orderID,
@@ -185,6 +188,14 @@ export default function PayPalButtonsContainer({
     );
   }
 
+  if (!actualClerkId) {
+    return (
+      <div className="text-red-400 text-sm">
+        User authentication required for PayPal payments
+      </div>
+    );
+  }
+
   if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID) {
     return (
       <div className="text-red-400 text-sm">
@@ -228,6 +239,10 @@ export default function PayPalButtonsContainer({
             }
             if (!totalPrice || totalPrice <= 0) {
               setError("Invalid payment amount");
+              return actions.reject();
+            }
+            if (!actualClerkId) {
+              setError("User authentication required");
               return actions.reject();
             }
             return actions.resolve();
