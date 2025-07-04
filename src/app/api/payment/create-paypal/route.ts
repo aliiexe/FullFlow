@@ -26,8 +26,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PayPal configuration error" }, { status: 500 });
     }
 
-    // Get PayPal access token
-    console.log("[DEBUG] Fetching PayPal access token");
+    // Get PayPal access token - USING SANDBOX ENDPOINT
+    console.log("[DEBUG] Fetching PayPal access token from SANDBOX");
     const authResponse = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
       method: "POST",
       headers: {
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     // Use a simple custom_id that's within PayPal's length limits
     const customId = `${clerkId || 'guest'}_${Date.now()}`;
 
-    // Create order data - simplified and clean
+    // Create order data - simplified and clean for SANDBOX
     const orderData = {
       intent: "CAPTURE",
       purchase_units: [
@@ -84,8 +84,9 @@ export async function POST(request: NextRequest) {
       },
     };
 
-    console.log("[DEBUG] Creating PayPal order with data:", JSON.stringify(orderData, null, 2));
+    console.log("[DEBUG] Creating PayPal SANDBOX order with data:", JSON.stringify(orderData, null, 2));
     
+    // CREATE ORDER IN SANDBOX
     const orderResponse = await fetch("https://api-m.sandbox.paypal.com/v2/checkout/orders", {
       method: "POST",
       headers: {
@@ -97,12 +98,12 @@ export async function POST(request: NextRequest) {
 
     if (!orderResponse.ok) {
       const errorText = await orderResponse.text();
-      console.error("[DEBUG] PayPal order creation error:", errorText);
+      console.error("[DEBUG] PayPal SANDBOX order creation error:", errorText);
       throw new Error(`PayPal order creation failed: ${errorText}`);
     }
 
     const orderResult = await orderResponse.json();
-    console.log("[DEBUG] PayPal order created successfully:", orderResult);
+    console.log("[DEBUG] PayPal SANDBOX order created successfully:", orderResult);
 
     // Validate the response has the required fields
     if (!orderResult.id) {
