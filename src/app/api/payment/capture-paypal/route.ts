@@ -20,8 +20,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "PayPal configuration error" }, { status: 500 });
     }
 
-    // Get PayPal access token
-    console.log("[DEBUG] Fetching PayPal access token");
+    // Get PayPal access token - USING SANDBOX ENDPOINT
+    console.log("[DEBUG] Fetching PayPal access token from SANDBOX");
     const authResponse = await fetch("https://api-m.sandbox.paypal.com/v1/oauth2/token", {
       method: "POST",
       headers: {
@@ -41,7 +41,7 @@ export async function POST(request: NextRequest) {
     console.log("[DEBUG] Got PayPal access token");
 
     // First, get the order details to extract customer information
-    console.log("[DEBUG] Fetching order details for:", orderID);
+    console.log("[DEBUG] Fetching SANDBOX order details for:", orderID);
     const orderDetailsResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}`, {
       method: "GET",
       headers: {
@@ -53,11 +53,11 @@ export async function POST(request: NextRequest) {
     let orderDetails = null;
     if (orderDetailsResponse.ok) {
       orderDetails = await orderDetailsResponse.json();
-      console.log("[DEBUG] Order details retrieved:", orderDetails);
+      console.log("[DEBUG] SANDBOX order details retrieved:", orderDetails);
     }
 
-    // Capture the order
-    console.log("[DEBUG] Capturing PayPal order:", orderID);
+    // Capture the order - USING SANDBOX ENDPOINT
+    console.log("[DEBUG] Capturing PayPal SANDBOX order:", orderID);
     const captureResponse = await fetch(`https://api-m.sandbox.paypal.com/v2/checkout/orders/${orderID}/capture`, {
       method: "POST",
       headers: {
@@ -68,12 +68,12 @@ export async function POST(request: NextRequest) {
 
     if (!captureResponse.ok) {
       const errorText = await captureResponse.text();
-      console.error("[DEBUG] PayPal capture error:", errorText);
+      console.error("[DEBUG] PayPal SANDBOX capture error:", errorText);
       throw new Error(`PayPal capture failed: ${errorText}`);
     }
 
     const captureResult = await captureResponse.json();
-    console.log("[DEBUG] PayPal payment captured successfully:", captureResult);
+    console.log("[DEBUG] PayPal SANDBOX payment captured successfully:", captureResult);
 
     // Extract payment details
     const paymentDetails = {
@@ -113,7 +113,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    console.log("[DEBUG] Payment details to save:", paymentDetails);
+    console.log("[DEBUG] SANDBOX payment details to save:", paymentDetails);
 
     // Save payment data to database
     try {
@@ -128,12 +128,12 @@ export async function POST(request: NextRequest) {
 
       if (saveResponse.ok) {
         const saveResult = await saveResponse.json();
-        console.log("[DEBUG] Payment saved successfully:", saveResult);
+        console.log("[DEBUG] SANDBOX payment saved successfully:", saveResult);
       } else {
-        console.error("[DEBUG] Failed to save payment data");
+        console.error("[DEBUG] Failed to save SANDBOX payment data");
       }
     } catch (saveError) {
-      console.error("[DEBUG] Error saving payment:", saveError);
+      console.error("[DEBUG] Error saving SANDBOX payment:", saveError);
     }
 
     return NextResponse.json({
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error("[DEBUG] PayPal capture error:", error);
+    console.error("[DEBUG] PayPal SANDBOX capture error:", error);
     return NextResponse.json(
       { error: error instanceof Error ? error.message : "An unknown error occurred" },
       { status: 500 }

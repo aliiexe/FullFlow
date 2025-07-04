@@ -217,7 +217,11 @@ export default function Dashboard() {
         const updatedSubscriptions = userData.subscriptions.map((sub) => {
           return { ...sub, subscription_status: "canceled" };
         });
-        setUserData({ ...userData, payments: updatedPayments, subscriptions: updatedSubscriptions });
+        setUserData({
+          ...userData,
+          payments: updatedPayments,
+          subscriptions: updatedSubscriptions,
+        });
       }
       setShowCancelModal(false);
     } catch (error) {
@@ -293,7 +297,8 @@ export default function Dashboard() {
 
   // Get subscription data from payments
   const activeSubscription = userData?.subscriptions?.find(
-    (sub) => sub.subscription_status === "active" || sub.subscription_status === "paid"
+    (sub) =>
+      sub.subscription_status === "active" || sub.subscription_status === "paid"
   );
 
   // Main dashboard
@@ -402,7 +407,8 @@ export default function Dashboard() {
                           "Professional"}
                       </h3>
                       <p className="text-2xl font-bold text-white mt-1">
-                        ${activeSubscription.subscription_amount.toFixed(2)}/month
+                        ${activeSubscription.subscription_amount.toFixed(2)}
+                        /month
                       </p>
                       <p className="text-sm text-gray-400 mt-1">
                         4 included users
@@ -609,7 +615,7 @@ export default function Dashboard() {
                         <th className="px-6 py-3 text-sm font-medium">Type</th>
                         <th className="px-6 py-3 text-sm font-medium">Date</th>
                         <th className="px-6 py-3 text-sm font-medium">
-                          Service
+                          Service/Plan
                         </th>
                         <th className="px-6 py-3 text-sm font-medium">
                           Amount
@@ -620,47 +626,60 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {userData.payments.map((payment) => (
-                        <tr
-                          key={payment.payment_id}
-                          className="border-b border-white/5 hover:bg-white/[0.02]"
-                        >
-                          <td className="px-6 py-4 text-white capitalize">
-                            {payment.payment_type}
-                          </td>
-                          <td className="px-6 py-4 text-white">
-                            {payment.payment_date
-                              ? new Date(
-                                  payment.payment_date
-                                ).toLocaleDateString()
-                              : "Pending"}
-                          </td>
-                          <td className="px-6 py-4 text-white">
-                            {payment.selected_deliverable_name ||
-                              payment.subscription_tier_name ||
-                              "-"}
-                          </td>
-                          <td className="px-6 py-4 text-white">
-                            ${payment.payment_amount.toLocaleString()}
-                          </td>
-                          <td className="px-6 py-4">
-                            <span
-                              className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                payment.payment_status === "completed" ||
-                                payment.payment_status === "paid"
-                                  ? "bg-green-500/20 text-green-400"
-                                  : payment.payment_status === "active"
-                                  ? "bg-blue-500/20 text-blue-400"
-                                  : payment.payment_status === "canceled"
-                                  ? "bg-red-500/20 text-red-400"
-                                  : "bg-amber-500/20 text-amber-400"
-                              }`}
-                            >
-                              {payment.payment_status}
-                            </span>
-                          </td>
-                        </tr>
-                      ))}
+                      {[...(userData.payments || [])]
+                        .sort((a, b) => {
+                          // Sort by date descending
+                          const dateA = a.payment_date
+                            ? new Date(a.payment_date).getTime()
+                            : 0;
+                          const dateB = b.payment_date
+                            ? new Date(b.payment_date).getTime()
+                            : 0;
+                          return dateB - dateA;
+                        })
+                        .map((payment) => (
+                          <tr
+                            key={payment.payment_id}
+                            className="border-b border-white/5 hover:bg-white/[0.02]"
+                          >
+                            <td className="px-6 py-4 text-white capitalize">
+                              {payment.payment_type}
+                            </td>
+                            <td className="px-6 py-4 text-white">
+                              {payment.payment_date
+                                ? new Date(
+                                    payment.payment_date
+                                  ).toLocaleDateString()
+                                : "Pending"}
+                            </td>
+                            <td className="px-6 py-4 text-white">
+                              {payment.selected_deliverable_name ||
+                                payment.subscription_tier_name ||
+                                "-"}
+                            </td>
+                            <td className="px-6 py-4 text-white">
+                              $
+                              {payment.payment_amount?.toLocaleString() ??
+                                "0.00"}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  payment.payment_status === "completed" ||
+                                  payment.payment_status === "paid"
+                                    ? "bg-green-500/20 text-green-400"
+                                    : payment.payment_status === "active"
+                                    ? "bg-blue-500/20 text-blue-400"
+                                    : payment.payment_status === "canceled"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-amber-500/20 text-amber-400"
+                                }`}
+                              >
+                                {payment.payment_status}
+                              </span>
+                            </td>
+                          </tr>
+                        ))}
                     </tbody>
                   </table>
                 </div>
