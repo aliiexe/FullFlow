@@ -32,14 +32,19 @@ export default function PayPalButtonsContainer({
   const customerFullName =
     user?.fullName || `${user?.firstName || ""} ${user?.lastName || ""}`.trim();
 
-  // Initial options for PayPal
+  // Initial options for PayPal - SANDBOX CONFIGURATION
   const initialOptions = {
     clientId: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || "",
     currency: "USD",
     intent: "capture",
     components: "buttons",
     "enable-funding": "venmo,paylater",
-    "disable-funding": "card"
+    "disable-funding": "card",
+    // IMPORTANT: This forces sandbox mode for testing
+    "data-sdk-integration-source": "developer-studio",
+    vault: false,
+    // Add debug mode for testing
+    debug: process.env.NODE_ENV === 'development'
   };
 
   const createOrder = async () => {
@@ -47,7 +52,6 @@ export default function PayPalButtonsContainer({
     setError(null);
     
     try {
-      // Don't set loading here as it can interfere with PayPal SDK
       console.log("[DEBUG] Sending order creation request with:", {
         selectedServices,
         customerFullName,
@@ -190,38 +194,49 @@ export default function PayPalButtonsContainer({
   }
 
   return (
-    <PayPalScriptProvider options={initialOptions}>
-      <PayPalButtons
-        style={{
-          layout: "vertical",
-          color: "blue",
-          shape: "rect",
-          label: "pay",
-          height: 50
-        }}
-        disabled={disabled}
-        forceReRender={[isSubscription, totalPrice, disabled, selectedServices]}
-        createOrder={createOrder}
-        onApprove={onApprove}
-        onCancel={onCancel}
-        onError={onError}
-        onClick={(data, actions) => {
-          console.log('[DEBUG] PayPal button clicked', data);
-          // Validate before allowing payment
-          if (!customerEmail) {
-            setError("Customer email is required");
-            return actions.reject();
-          }
-          if (!totalPrice || totalPrice <= 0) {
-            setError("Invalid payment amount");
-            return actions.reject();
-          }
-          return actions.resolve();
-        }}
-        onInit={(data, actions) => {
-          console.log('[DEBUG] PayPal button initialized', data);
-        }}
-      />
-    </PayPalScriptProvider>
+    <div className="paypal-container">
+      {/* Add a notice for sandbox testing */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-blue-500/10 border border-blue-500/30 text-blue-400 px-4 py-3 rounded-lg mb-4 text-sm">
+          <strong>Sandbox Mode:</strong> Use test PayPal accounts for testing. No real money will be charged.
+          <br />
+          <strong>Test Buyer Account:</strong> Use any PayPal sandbox buyer account or create one at developer.paypal.com
+        </div>
+      )}
+      
+      <PayPalScriptProvider options={initialOptions}>
+        <PayPalButtons
+          style={{
+            layout: "vertical",
+            color: "blue",
+            shape: "rect",
+            label: "pay",
+            height: 50
+          }}
+          disabled={disabled}
+          forceReRender={[isSubscription, totalPrice, disabled, selectedServices]}
+          createOrder={createOrder}
+          onApprove={onApprove}
+          onCancel={onCancel}
+          onError={onError}
+          onClick={(data, actions) => {
+            console.log('[DEBUG] PayPal button clicked', data);
+            // Validate before allowing payment
+            if (!customerEmail) {
+              setError("Customer email is required");
+              return actions.reject();
+            }
+            if (!totalPrice || totalPrice <= 0) {
+              setError("Invalid payment amount");
+              return actions.reject();
+            }
+            return actions.resolve();
+          }}
+          onInit={(data, actions) => {
+            console.log('[DEBUG] PayPal button initialized', data);
+          }}
+        />
+      </PayPalScriptProvider>
+    </div>
   );
 }
