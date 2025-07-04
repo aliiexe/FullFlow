@@ -6,8 +6,8 @@ import { NextRequest, NextResponse } from "next/server";
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/capture-paypal called");
   try {
-    const { orderID, isSubscription } = await request.json();
-    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription);
+    const { orderID, isSubscription, subscriptionId } = await request.json();
+    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription, "subscriptionId:", subscriptionId);
 
     if (!orderID) {
       console.error("[DEBUG] Missing orderID");
@@ -86,6 +86,7 @@ export async function POST(request: NextRequest) {
       customerName: "",
       selectedServices: [],
       isSubscription: isSubscription || false,
+      subscriptionId: subscriptionId || "",
       customId: captureResult.purchase_units[0]?.custom_id || "",
       clerkId: ""
     };
@@ -94,7 +95,7 @@ export async function POST(request: NextRequest) {
     if (orderDetails) {
       const description = orderDetails.purchase_units[0]?.description || "";
       const customId = orderDetails.purchase_units[0]?.custom_id || "";
-      
+
       // Extract email from description (format: "Services: X items (email@example.com)")
       const emailMatch = description.match(/\(([^)]+@[^)]+)\)/);
       if (emailMatch) {
@@ -112,7 +113,7 @@ export async function POST(request: NextRequest) {
 
       // Extract selected services from reference_id if available
       const referenceId = orderDetails.purchase_units[0]?.reference_id || "";
-      if (referenceId) {
+      if (referenceId && !isSubscription) {
         paymentDetails.selectedServices = referenceId.split(",");
       }
     }
@@ -162,7 +163,8 @@ export async function POST(request: NextRequest) {
       customerEmail: paymentDetails.customerEmail,
       customerName: paymentDetails.customerName,
       selectedServices: paymentDetails.selectedServices,
-      isSubscription: paymentDetails.isSubscription
+      isSubscription: paymentDetails.isSubscription,
+      subscriptionId: paymentDetails.subscriptionId
     });
 
   } catch (error) {
