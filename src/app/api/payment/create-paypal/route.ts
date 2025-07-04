@@ -8,7 +8,7 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
     console.log("[DEBUG] Request body:", body);
-    const { selectedServices, customerFullName, customerEmail, isSubscription, subscriptionId, clerkId } = body;
+    const { selectedServices, customerFullName, customerEmail, isSubscription, subscriptionId, clerkId, totalPrice } = body;
 
     if (!customerEmail) {
       console.error("[DEBUG] Missing customerEmail");
@@ -41,29 +41,20 @@ export async function POST(request: NextRequest) {
     const { access_token } = await authResponse.json();
     console.log("[DEBUG] Got PayPal access token");
 
-    // Calculate the correct amount based on selected services or subscription
+    // Calculate the correct amount
     let amount = "150.00"; // Default amount
     
     if (isSubscription) {
-      // For subscriptions, use a fixed amount or get from subscriptionId
       amount = "99.00"; // Default subscription amount
-    } else {
-      // For one-time payments, calculate based on selected services
-      // You might want to fetch actual prices from your API
-      amount = "150.00";
+    } else if (totalPrice) {
+      amount = totalPrice.toString();
     }
 
-    // Create custom data to pass with the order
-    const customData = JSON.stringify({
-      selectedServices: selectedServices || [],
-      customerEmail,
-      customerFullName,
-      isSubscription,
-      subscriptionId,
-      clerkId
-    });
+    // Use a simple custom_id that's within PayPal's length limits
+    // We'll store the full data in the description or retrieve it later using the order ID
+    const customId = `${clerkId || 'guest'}_${Date.now()}`;
 
-    // Create order data
+    // Create order data - simplified custom_id
     const orderData = {
       intent: "CAPTURE",
       purchase_units: [
@@ -73,9 +64,13 @@ export async function POST(request: NextRequest) {
             value: amount,
           },
           description: isSubscription
-            ? `Monthly Subscription - Full Flow`
-            : `Services: ${selectedServices?.join(", ") || "Custom Services"}`,
-          custom_id: customData, // Store custom data here
+            ? `Monthly Subscription - Full Flow (${customerEmail})`
+            : `Services: ${selectedServices?.length || 0} items (${customerEmail})`,
+          custom_id: customId, // Simple, short custom ID
+          // Store customer info in the payee object instead
+          payee: {
+            email_address: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? undefined : customerEmail,
+          },
         },
       ],
       application_context: {
@@ -85,6 +80,15 @@ export async function POST(request: NextRequest) {
         return_url: `${request.nextUrl.origin}/success`,
         cancel_url: `${request.nextUrl.origin}/cancel?source=paypal`,
       },
+      // Store additional data in the order metadata
+      metadata: {
+        customer_email: customerEmail,
+        customer_name: customerFullName,
+        is_subscription: isSubscription.toString(),
+        clerk_id: clerkId || '',
+        selected_services: selectedServices?.join(',') || '',
+        subscription_id: subscriptionId || ''
+      }
     };
 
     console.log("[DEBUG] Creating PayPal order with data:", orderData);
@@ -106,10 +110,14 @@ export async function POST(request: NextRequest) {
     const orderResult = await orderResponse.json();
     console.log("[DEBUG] PayPal order created successfully:", orderResult);
 
+    // Store the order details in a temporary storage or database for later retrieval
+    // For now, we'll rely on the order description and custom_id
+    
     return NextResponse.json({
       id: orderResult.id,
       status: orderResult.status,
-      links: orderResult.links
+      links: orderResult.links,
+      custom_id: customId
     });
 
   } catch (error) {

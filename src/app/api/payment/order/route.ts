@@ -55,30 +55,35 @@ export async function GET(request: NextRequest) {
     
     const orderDetails = await orderDetailsResponse.json();
     
-    // Extract custom data
-    const customId = orderDetails.purchase_units?.[0]?.custom_id;
-    let customData = {};
+    // Extract customer data from description and other fields
+    const description = orderDetails.purchase_units?.[0]?.description || "";
+    const amount = orderDetails.purchase_units?.[0]?.amount?.value || "0";
+    const customId = orderDetails.purchase_units?.[0]?.custom_id || "";
     
-    try {
-      if (customId) {
-        customData = JSON.parse(customId);
-      }
-    } catch (e) {
-      console.error("Error parsing customId:", e);
+    // Extract email from description (format: "Services: X items (email@example.com)")
+    let customerEmail = "";
+    let customerName = "";
+    
+    const emailMatch = description.match(/\(([^)]+@[^)]+)\)/);
+    if (emailMatch) {
+      customerEmail = emailMatch[1];
+    }
+
+    // Extract customer name from payer info if available
+    if (orderDetails.payer?.name) {
+      customerName = `${orderDetails.payer.name.given_name || ''} ${orderDetails.payer.name.surname || ''}`.trim();
     }
     
-    const { customerEmail = "", customerFullName = "" } = customData as any;
-    const amount = orderDetails.purchase_units?.[0]?.amount?.value || "0";
-    
-    // Parse as float first, then multiply by 100 and round to ensure integer cents
+    // Parse amount as float first, then multiply by 100 and round to ensure integer cents
     const amountInCents = Math.round(parseFloat(amount) * 100);
     
     return NextResponse.json({
       customer_email: customerEmail,
-      customer_name: customerFullName,
+      customer_name: customerName,
       amount_total: amountInCents,
       order_id: order_id,
-      status: orderDetails.status
+      status: orderDetails.status,
+      custom_id: customId
     });
   } catch (error) {
     console.error("Error retrieving PayPal order:", error);
