@@ -86,7 +86,8 @@ export async function POST(request: NextRequest) {
       customerName: "",
       selectedServices: [],
       isSubscription: isSubscription || false,
-      customId: captureResult.purchase_units[0]?.custom_id || ""
+      customId: captureResult.purchase_units[0]?.custom_id || "",
+      clerkId: ""
     };
 
     // Extract customer data from order details or description
