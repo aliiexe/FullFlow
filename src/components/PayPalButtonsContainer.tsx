@@ -43,11 +43,11 @@ export default function PayPalButtonsContainer({
   };
 
   const createOrder = async () => {
-    setIsLoading(true);
-    setError(null);
     console.log("[DEBUG] Starting createOrder");
+    setError(null);
     
     try {
+      // Don't set loading here as it can interfere with PayPal SDK
       console.log("[DEBUG] Sending order creation request with:", {
         selectedServices,
         customerFullName,
@@ -91,13 +91,17 @@ export default function PayPalButtonsContainer({
       }
 
       console.log("[DEBUG] Returning order ID to PayPal SDK:", orderData.id);
+      
+      // Return just the order ID string - this is critical for PayPal SDK
       return orderData.id;
+      
     } catch (err) {
       console.error("[DEBUG] Order creation error:", err);
       setError(err instanceof Error ? err.message : "Failed to create order");
+      
+      // Re-throw the error so PayPal SDK knows the order creation failed
       throw err;
     } finally {
-      setIsLoading(false);
       console.log("[DEBUG] Finished createOrder");
     }
   };
@@ -206,6 +210,10 @@ export default function PayPalButtonsContainer({
           // Validate before allowing payment
           if (!customerEmail) {
             setError("Customer email is required");
+            return actions.reject();
+          }
+          if (!totalPrice || totalPrice <= 0) {
+            setError("Invalid payment amount");
             return actions.reject();
           }
           return actions.resolve();

@@ -15,6 +15,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Customer email is required" }, { status: 400 });
     }
 
+    if (!totalPrice || totalPrice <= 0) {
+      console.error("[DEBUG] Invalid totalPrice:", totalPrice);
+      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 });
+    }
+
     // Check if PayPal credentials are configured
     if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
       console.error("[DEBUG] PayPal credentials not configured");
@@ -41,20 +46,22 @@ export async function POST(request: NextRequest) {
     const { access_token } = await authResponse.json();
     console.log("[DEBUG] Got PayPal access token");
 
-    // Calculate the correct amount
+    // Calculate the correct amount - ensure it's a valid decimal string
     let amount = "150.00"; // Default amount
     
     if (isSubscription) {
       amount = "99.00"; // Default subscription amount
     } else if (totalPrice) {
-      amount = totalPrice.toString();
+      // Ensure the amount is properly formatted as a decimal string
+      amount = parseFloat(totalPrice).toFixed(2);
     }
 
+    console.log("[DEBUG] Using amount:", amount);
+
     // Use a simple custom_id that's within PayPal's length limits
-    // We'll store the full data in the description or retrieve it later using the order ID
     const customId = `${clerkId || 'guest'}_${Date.now()}`;
 
-    // Create order data - simplified custom_id
+    // Create order data - simplified and clean
     const orderData = {
       intent: "CAPTURE",
       purchase_units: [
@@ -66,32 +73,19 @@ export async function POST(request: NextRequest) {
           description: isSubscription
             ? `Monthly Subscription - Full Flow (${customerEmail})`
             : `Services: ${selectedServices?.length || 0} items (${customerEmail})`,
-          custom_id: customId, // Simple, short custom ID
-          // Store customer info in the payee object instead
-          payee: {
-            email_address: process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID ? undefined : customerEmail,
-          },
+          custom_id: customId,
         },
       ],
       application_context: {
         brand_name: "Full Flow",
         shipping_preference: "NO_SHIPPING",
         user_action: "PAY_NOW",
-        return_url: `${request.nextUrl.origin}/success`,
-        cancel_url: `${request.nextUrl.origin}/cancel?source=paypal`,
+        // Remove return_url and cancel_url to prevent about:blank issue
       },
-      // Store additional data in the order metadata
-      metadata: {
-        customer_email: customerEmail,
-        customer_name: customerFullName,
-        is_subscription: isSubscription.toString(),
-        clerk_id: clerkId || '',
-        selected_services: selectedServices?.join(',') || '',
-        subscription_id: subscriptionId || ''
-      }
     };
 
-    console.log("[DEBUG] Creating PayPal order with data:", orderData);
+    console.log("[DEBUG] Creating PayPal order with data:", JSON.stringify(orderData, null, 2));
+    
     const orderResponse = await fetch("https://api-m.sandbox.paypal.com/v2/checkout/orders", {
       method: "POST",
       headers: {
@@ -110,8 +104,10 @@ export async function POST(request: NextRequest) {
     const orderResult = await orderResponse.json();
     console.log("[DEBUG] PayPal order created successfully:", orderResult);
 
-    // Store the order details in a temporary storage or database for later retrieval
-    // For now, we'll rely on the order description and custom_id
+    // Validate the response has the required fields
+    if (!orderResult.id) {
+      throw new Error("PayPal order creation failed: No order ID returned");
+    }
     
     return NextResponse.json({
       id: orderResult.id,
