@@ -747,7 +747,9 @@ export default function Dashboard() {
                           .map((payment: UserPayment) => {
                             // LOG: Print each payment row
                             console.log('[Subscription Payment Row]', payment);
-                            const showCancel = getPaymentStatus(payment) === "paid" && payment.subscription_id;
+                            const showCancel =
+                              getPaymentStatus(payment) === "paid" &&
+                              (payment.subscription_id || payment.payment_id);
                             if (showCancel) {
                               console.log('[Show Cancel Button]', payment.payment_id, payment.subscription_id, getPaymentStatus(payment));
                             }
@@ -794,7 +796,7 @@ export default function Dashboard() {
                                       className="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
                                       onClick={() => {
                                         setSubscriptionToCancel({
-                                          subscription_id: payment.subscription_id!,
+                                          subscription_id: payment.subscription_id || payment.payment_id,
                                           subscription_tier_name: payment.subscription_tier_name || "",
                                           subscription_amount: payment.payment_amount || 0,
                                           subscription_date: payment.payment_date || "",
