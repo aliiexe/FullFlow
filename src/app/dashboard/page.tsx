@@ -32,9 +32,11 @@ interface UserPayment {
   payment_amount: number;
   payment_date: string | null;
   payment_type: string;
-  payment_status: string;
+  payment_status?: string; // legacy or fallback
+  status?: string; // new field for status
   selected_deliverable_name: string | null;
   subscription_tier_name: string | null;
+  subscription_id?: string;
 }
 
 // Update UserData interface
@@ -61,6 +63,11 @@ interface UserSubscription {
   renewal_date?: string;
 }
 
+// Helper to get status from payment (status or fallback to payment_status)
+function getPaymentStatus(payment: UserPayment): string {
+  return payment.payment_status || payment.status || '';
+}
+
 export default function Dashboard() {
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -71,6 +78,7 @@ export default function Dashboard() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
+  const [subscriptionToCancel, setSubscriptionToCancel] = useState<UserSubscription | null>(null);
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -201,21 +209,41 @@ export default function Dashboard() {
 
   // Handle subscription cancellation
   const handleCancelSubscription = async () => {
+    if (!userData || !subscriptionToCancel) return;
     setCancelingSubscription(true);
     try {
-      // API call to cancel subscription would go here
-      await new Promise((resolve) => setTimeout(resolve, 1500)); // Simulate API call
-
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      const response = await fetch(`${apiUrl}/api/cancel_sub`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
+        }),
+      });
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+      }
+      const result = await response.json();
+      console.log("Subscription cancellation result:", result);
       // Update local state to reflect cancellation
       if (userData) {
         const updatedPayments = userData.payments.map((payment) => {
-          if (payment.payment_type === "subscription") {
+          if (
+            payment.payment_type === "subscription" &&
+            payment.subscription_tier_name === subscriptionToCancel.subscription_tier_name &&
+            getPaymentStatus(payment) !== "canceled"
+          ) {
             return { ...payment, payment_status: "canceled" };
           }
           return payment;
         });
         const updatedSubscriptions = userData.subscriptions.map((sub) => {
-          return { ...sub, subscription_status: "canceled" };
+          if (sub.subscription_id === subscriptionToCancel.subscription_id) {
+            return { ...sub, subscription_status: "canceled" };
+          }
+          return sub;
         });
         setUserData({
           ...userData,
@@ -224,8 +252,14 @@ export default function Dashboard() {
         });
       }
       setShowCancelModal(false);
+      setSubscriptionToCancel(null);
+      const message = result.canCancel
+        ? `Subscription cancelled successfully. ${result.cancelMessage || "You'll have access until the end of your current billing period."}`
+        : "Subscription cancellation processed.";
+      alert(message);
     } catch (error) {
       console.error("Error canceling subscription:", error);
+      alert(`Failed to cancel subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setCancelingSubscription(false);
     }
@@ -416,15 +450,13 @@ export default function Dashboard() {
                     </div>
                     <span
                       className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        activeSubscription.subscription_status === "active" ||
-                        activeSubscription.subscription_status === "paid"
+                        getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "completed" ||
+                        getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "paid"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-red-500/20 text-red-400"
                       }`}
                     >
-                      {activeSubscription.subscription_status === "canceled"
-                        ? "Canceled"
-                        : "Active"}
+                      {getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment)}
                     </span>
                   </div>
 
@@ -446,10 +478,13 @@ export default function Dashboard() {
                   </div>
 
                   <div className="pt-6 mt-6 border-t border-white/10">
-                    {activeSubscription.subscription_status === "active" ||
-                    activeSubscription.subscription_status === "paid" ? (
+                    {getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "active" ||
+                    getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "paid" ? (
                       <button
-                        onClick={() => setShowCancelModal(true)}
+                        onClick={() => {
+                          setSubscriptionToCancel(activeSubscription);
+                          setShowCancelModal(true);
+                        }}
                         className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                       >
                         Cancel Subscription
@@ -600,96 +635,193 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
+              className="space-y-6"
             >
-              {/* Payment History Card */}
-              <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg mb-6">
-                <div className="p-6 border-b border-white/10">
-                  <h2 className="text-xl font-semibold text-white">
-                    Payment History
-                  </h2>
+              {/* Separate Deliverables and Subscriptions */}
+              {/* Deliverables Section */}
+              {userData.payments.filter(p => p.payment_type === "deliverable").length > 0 && (
+                <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
+                  <div className="p-6 border-b border-white/10">
+                    <h2 className="text-xl font-semibold text-white flex items-center">
+                      <FileText className="mr-2 h-5 w-5" />
+                      One-Time Services
+                    </h2>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Individual services and deliverables
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-left text-gray-400 border-b border-white/10">
+                          <th className="px-6 py-3 text-sm font-medium">Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">Service</th>
+                          <th className="px-6 py-3 text-sm font-medium">Amount</th>
+                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userData.payments
+                          .filter(payment => payment.payment_type === "deliverable")
+                          .sort((a, b) => {
+                            const dateA = a.payment_date
+                              ? new Date(a.payment_date).getTime()
+                              : 0;
+                            const dateB = b.payment_date
+                              ? new Date(b.payment_date).getTime()
+                              : 0;
+                            return dateB - dateA;
+                          })
+                          .map((payment) => (
+                            <tr
+                              key={payment.payment_id}
+                              className="border-b border-white/5 hover:bg-white/[0.02]"
+                            >
+                              <td className="px-6 py-4 text-white">
+                                {payment.payment_date
+                                  ? new Date(payment.payment_date).toLocaleDateString()
+                                  : "Pending"}
+                              </td>
+                              <td className="px-6 py-4 text-white">
+                                {payment.selected_deliverable_name || "-"}
+                              </td>
+                              <td className="px-6 py-4 text-white">
+                                ${payment.payment_amount?.toLocaleString() ?? "0.00"}
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    getPaymentStatus(payment) === "completed" ||
+                                    getPaymentStatus(payment) === "paid"
+                                      ? "bg-green-500/20 text-green-400"
+                                      : getPaymentStatus(payment) === "canceled"
+                                      ? "bg-red-500/20 text-red-400"
+                                      : "bg-amber-500/20 text-amber-400"
+                                  }`}
+                                >
+                                  {getPaymentStatus(payment)}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="text-left text-gray-400 border-b border-white/10">
-                        <th className="px-6 py-3 text-sm font-medium">Type</th>
-                        <th className="px-6 py-3 text-sm font-medium">Date</th>
-                        <th className="px-6 py-3 text-sm font-medium">
-                          Service/Plan
-                        </th>
-                        <th className="px-6 py-3 text-sm font-medium">
-                          Amount
-                        </th>
-                        <th className="px-6 py-3 text-sm font-medium">
-                          Status
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {[...(userData.payments || [])]
-                        .sort((a, b) => {
-                          // Sort by date descending
-                          const dateA = a.payment_date
-                            ? new Date(a.payment_date).getTime()
-                            : 0;
-                          const dateB = b.payment_date
-                            ? new Date(b.payment_date).getTime()
-                            : 0;
-                          return dateB - dateA;
-                        })
-                        .map((payment) => (
-                          <tr
-                            key={payment.payment_id}
-                            className="border-b border-white/5 hover:bg-white/[0.02]"
-                          >
-                            <td className="px-6 py-4 text-white capitalize">
-                              {payment.payment_type}
-                            </td>
-                            <td className="px-6 py-4 text-white">
-                              {payment.payment_date
-                                ? new Date(
-                                    payment.payment_date
-                                  ).toLocaleDateString()
-                                : "Pending"}
-                            </td>
-                            <td className="px-6 py-4 text-white">
-                              {payment.selected_deliverable_name ||
-                                payment.subscription_tier_name ||
-                                "-"}
-                            </td>
-                            <td className="px-6 py-4 text-white">
-                              $
-                              {payment.payment_amount?.toLocaleString() ??
-                                "0.00"}
-                            </td>
-                            <td className="px-6 py-4">
-                              <span
-                                className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                  payment.payment_status === "completed" ||
-                                  payment.payment_status === "paid"
-                                    ? "bg-green-500/20 text-green-400"
-                                    : payment.payment_status === "active"
-                                    ? "bg-blue-500/20 text-blue-400"
-                                    : payment.payment_status === "canceled"
-                                    ? "bg-red-500/20 text-red-400"
-                                    : "bg-amber-500/20 text-amber-400"
-                                }`}
+              )}
+
+              {/* Subscriptions Section */}
+              {userData.payments.filter(p => p.payment_type === "subscription").length > 0 && (
+                <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
+                  <div className="p-6 border-b border-white/10">
+                    <h2 className="text-xl font-semibold text-white flex items-center">
+                      <CardIcon className="mr-2 h-5 w-5" />
+                      Subscription Payments
+                    </h2>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Recurring subscription payments
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-left text-gray-400 border-b border-white/10">
+                          <th className="px-6 py-3 text-sm font-medium">Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">Plan</th>
+                          <th className="px-6 py-3 text-sm font-medium">Amount</th>
+                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userData.payments
+                          .filter(payment => payment.payment_type === "subscription")
+                          .sort((a, b) => {
+                            const dateA = a.payment_date
+                              ? new Date(a.payment_date).getTime()
+                              : 0;
+                            const dateB = b.payment_date
+                              ? new Date(b.payment_date).getTime()
+                              : 0;
+                            return dateB - dateA;
+                          })
+                          .map((payment: UserPayment) => {
+                            // LOG: Print each payment row
+                            console.log('[Subscription Payment Row]', payment);
+                            const showCancel = getPaymentStatus(payment) === "paid" && payment.subscription_id;
+                            if (showCancel) {
+                              console.log('[Show Cancel Button]', payment.payment_id, payment.subscription_id, getPaymentStatus(payment));
+                            }
+                            return (
+                              <tr
+                                key={payment.payment_id}
+                                className="border-b border-white/5 hover:bg-white/[0.02]"
                               >
-                                {payment.payment_status}
-                              </span>
-                            </td>
-                          </tr>
-                        ))}
-                    </tbody>
-                  </table>
+                                <td className="px-6 py-4 text-white">
+                                  {payment.payment_date
+                                    ? new Date(payment.payment_date).toLocaleDateString()
+                                    : "Pending"}
+                                </td>
+                                <td className="px-6 py-4 text-white">
+                                  {payment.subscription_tier_name || "-"}
+                                  {/* Debug badge for subscription_id */}
+                                  {payment.subscription_id && (
+                                    <span className="ml-2 px-2 py-1 text-[10px] bg-gray-700 text-gray-200 rounded">
+                                      ID: {payment.subscription_id}
+                                    </span>
+                                  )}
+                                </td>
+                                <td className="px-6 py-4 text-white">
+                                  ${payment.payment_amount?.toLocaleString() ?? "0.00"}
+                                </td>
+                                <td className="px-6 py-4 flex items-center gap-2">
+                                  <span
+                                    className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                      getPaymentStatus(payment) === "completed" ||
+                                      getPaymentStatus(payment) === "paid"
+                                        ? "bg-green-500/20 text-green-400"
+                                        : getPaymentStatus(payment) === "active"
+                                        ? "bg-blue-500/20 text-blue-400"
+                                        : getPaymentStatus(payment) === "canceled"
+                                        ? "bg-red-500/20 text-red-400"
+                                        : "bg-amber-500/20 text-amber-400"
+                                    }`}
+                                  >
+                                    {getPaymentStatus(payment)}
+                                  </span>
+                                  {/* Cancel button for paid subscriptions with subscription_id */}
+                                  {showCancel && (
+                                    <button
+                                      className="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                      onClick={() => {
+                                        setSubscriptionToCancel({
+                                          subscription_id: payment.subscription_id!,
+                                          subscription_tier_name: payment.subscription_tier_name || "",
+                                          subscription_amount: payment.payment_amount || 0,
+                                          subscription_date: payment.payment_date || "",
+                                          subscription_status: getPaymentStatus(payment),
+                                        });
+                                        setShowCancelModal(true);
+                                      }}
+                                      disabled={cancelingSubscription}
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
                 </div>
-              </div>
+              )}
             </motion.div>
           )}
       </main>
 
       {/* Subscription Cancellation Modal */}
-      {showCancelModal && (
+      {showCancelModal && subscriptionToCancel && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
@@ -704,7 +836,7 @@ export default function Dashboard() {
                 </h3>
               </div>
               <button
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => { setShowCancelModal(false); setSubscriptionToCancel(null); }}
                 className="text-gray-400 hover:text-white"
               >
                 <X className="h-5 w-5" />
@@ -717,6 +849,17 @@ export default function Dashboard() {
               period.
             </p>
 
+            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-blue-300 text-sm font-medium">Current Plan</span>
+                <span className="text-blue-300 text-sm">${subscriptionToCancel.subscription_amount}/month</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-blue-300 text-sm">Plan Name</span>
+                <span className="text-blue-300 text-sm">{subscriptionToCancel.subscription_tier_name}</span>
+              </div>
+            </div>
+
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
               <p className="text-amber-300 text-sm">
                 Your subscription will remain active until the end of your
@@ -727,7 +870,7 @@ export default function Dashboard() {
 
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => setShowCancelModal(false)}
+                onClick={() => { setShowCancelModal(false); setSubscriptionToCancel(null); }}
                 className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                 disabled={cancelingSubscription}
               >

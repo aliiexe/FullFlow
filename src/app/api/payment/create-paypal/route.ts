@@ -32,129 +32,9 @@ interface SubscriptionPlan {
   updated_at: string;
 }
 
-interface ProjectInfos {
-  clerk_id: string;
-  projectkey: string;
-  jiraurl: string;
-  slackurl: string;
-}
-
-// Project creation functions from Stripe API
-async function createJiraProject(customerData: {
-  customerEmail: string;
-  customerName: string;
-  isSubscription: boolean;
-  subscriptionId?: string;
-  selectedServices?: string[];
-  sessionId: string;
-}) {
-  try {
-    const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
-
-    const projectKey = `PRJ${sessionSuffix}`;
-
-    const companyName = `PROJECT ${sessionSuffix}`;
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        customerEmail: customerData.customerEmail,
-        customerName: customerData.customerName,
-        companyName: companyName,
-        projectKey: projectKey,
-        isSubscription: customerData.isSubscription,
-        subscriptionId: customerData.subscriptionId,
-        selectedServices: customerData.selectedServices,
-        sessionId: customerData.sessionId
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error creating Jira project:', errorData);
-      // We'll log the error but continue with checkout to not block payment flow
-    } else {
-      const data = await response.json();
-      console.log('Jira project created successfully:', data);
-      console.log(`Project Key: ${projectKey}, Company Name: ${companyName}`);
-      return data;
-    }
-  } catch (error) {
-    console.error('Failed to create Jira project:', error);
-    // Log error but don't throw to prevent blocking the payment flow
-  }
-}
-
-async function createSlackChannel(customerData: {
-  customerEmail: string;
-  customerName: string;
-  sessionId: string;
-}) {
-  try {
-    // Extract last 4 characters from session ID and convert to uppercase
-    const sessionSuffix = customerData.sessionId.slice(-4).toLowerCase();
-
-    // Create Slack channel name with PRJ prefix and session ID suffix
-    const channelName = `prj-${sessionSuffix}`;
-
-    console.log('Creating Slack channel:', channelName);
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: channelName,
-        customerEmail: customerData.customerEmail,
-        customerName: customerData.customerName
-      }),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error creating Slack channel:', errorData);
-      // We'll log the error but continue with checkout to not block payment flow
-    } else {
-      const data = await response.json();
-      console.log('Slack channel created successfully:', data);
-      console.log(`Channel name: ${channelName}`);
-      return data;
-    }
-  } catch (error) {
-    console.error('Failed to create Slack channel:', error);
-    // Log error but don't throw to prevent blocking the payment flow
-  }
-}
-
-async function sendProjectInfo(data: ProjectInfos) {
-  try {
-    console.log('Sending project information with details:');
-    console.log('- Clerk ID:', data.clerk_id);
-    console.log('- Project Key:', data.projectkey);
-    console.log('- Jira URL:', data.jiraurl);
-    console.log('- Slack URL:', data.slackurl);
-
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/project-infos`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error('Error sending project information:', errorData);
-    } else {
-      const responseData = await response.json();
-      console.log('Project information sent successfully:', responseData);
-      return responseData;
-    }
-  } catch (error) {
-    console.error('Failed to send project information:', error);
-  }
-}
-
 /**
- * Creates a new PayPal order or subscription with integrated project creation.
+ * Creates a new PayPal order or subscription.
+ * Project creation will happen after payment capture.
  */
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/create-paypal called");
@@ -309,53 +189,17 @@ export async function POST(request: NextRequest) {
       throw new Error("PayPal order creation failed: No order ID returned");
     }
 
-    // Create project resources after successful PayPal order creation
-    const sessionSuffix = orderResult.id.slice(-4).toUpperCase();
-    const projectKey = `PRJ${sessionSuffix}`;
-    const channelName = `prj-${orderResult.id.slice(-4).toLowerCase()}`;
-
-    console.log("[DEBUG] Creating project resources with:");
-    console.log(`- Project Key: ${projectKey}`);
-    console.log(`- Channel Name: ${channelName}`);
-
-    // Create Jira project
-    await createJiraProject({
-      customerEmail,
-      customerName: customerFullName || '',
-      isSubscription: isSubscription || false,
-      subscriptionId,
-      selectedServices,
-      sessionId: orderResult.id
-    });
-
-    // Create Slack channel
-    await createSlackChannel({
-      customerEmail,
-      customerName: customerFullName || '',
-      sessionId: orderResult.id
-    });
-
-    // Send project information
-    await sendProjectInfo({
-      clerk_id: clerkId || 'anonymous',
-      projectkey: projectKey,
-      jiraurl: `https://pfa.atlassian.net/jira/software/projects/${projectKey}/boards`,
-      slackurl: `https://slack.com/app_redirect?channel=${channelName}`
-    });
-
     console.log('[DEBUG] Customer Full Name:', customerFullName);
     console.log('[DEBUG] Customer Email:', customerEmail);
     console.log('[DEBUG] Clerk ID:', clerkId || 'Not provided');
     console.log('[DEBUG] Payment Mode:', isSubscription ? 'subscription' : 'payment');
 
-    // When returning the order creation response, include these for later use if needed
+    // Return only the order creation response - project creation will happen after payment capture
     return NextResponse.json({
       id: orderResult.id,
       status: orderResult.status,
       links: orderResult.links,
       custom_id: customId,
-      project_key: projectKey,
-      channel_name: channelName,
       selected_deliverable_names: selectedDeliverableNames,
       subscription_tier_name: selectedPlanName,
     });
