@@ -1,13 +1,170 @@
 import { NextRequest, NextResponse } from "next/server";
 
+// Project creation functions
+async function createJiraProject(customerData: {
+  customerEmail: string;
+  customerName: string;
+  isSubscription: boolean;
+  subscriptionId?: string;
+  selectedServices?: string[];
+  sessionId: string;
+}) {
+  try {
+    const sessionSuffix = customerData.sessionId.slice(-4).toUpperCase();
+    const projectKey = `PRJ${sessionSuffix}`;
+    const companyName = `PROJECT ${sessionSuffix}`;
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/create-jira-project`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        customerEmail: customerData.customerEmail,
+        customerName: customerData.customerName,
+        companyName: companyName,
+        projectKey: projectKey,
+        isSubscription: customerData.isSubscription,
+        subscriptionId: customerData.subscriptionId,
+        selectedServices: customerData.selectedServices,
+        sessionId: customerData.sessionId
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error creating Jira project:', errorData);
+      return null;
+    } else {
+      const data = await response.json();
+      console.log('Jira project created successfully:', data);
+      console.log(`Project Key: ${projectKey}, Company Name: ${companyName}`);
+      return { data, projectKey, companyName };
+    }
+  } catch (error) {
+    console.error('Failed to create Jira project:', error);
+    return null;
+  }
+}
+
+async function createSlackChannel(customerData: {
+  customerEmail: string;
+  customerName: string;
+  sessionId: string;
+}) {
+  try {
+    const sessionSuffix = customerData.sessionId.slice(-4).toLowerCase();
+    const channelName = `prj-${sessionSuffix}`;
+
+    console.log('Creating Slack channel:', channelName);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: channelName,
+        customerEmail: customerData.customerEmail,
+        customerName: customerData.customerName
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error creating Slack channel:', errorData);
+      return null;
+    } else {
+      const data = await response.json();
+      console.log('Slack channel created successfully:', data);
+      console.log(`Channel name: ${channelName}`);
+      return { data, channelName };
+    }
+  } catch (error) {
+    console.error('Failed to create Slack channel:', error);
+    return null;
+  }
+}
+
+async function sendProjectInfo(data: {
+  clerk_id: string;
+  projectkey: string;
+  jiraurl: string;
+  slackurl: string;
+}) {
+  try {
+    console.log('Sending project information with details:');
+    console.log('- Clerk ID:', data.clerk_id);
+    console.log('- Project Key:', data.projectkey);
+    console.log('- Jira URL:', data.jiraurl);
+    console.log('- Slack URL:', data.slackurl);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/project-infos`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error sending project information:', errorData);
+      return null;
+    } else {
+      const responseData = await response.json();
+      console.log('Project information sent successfully:', responseData);
+      return responseData;
+    }
+  } catch (error) {
+    console.error('Failed to send project information:', error);
+    return null;
+  }
+}
+
+async function sendEmailNotification(customerData: {
+  customerEmail: string;
+  customerName: string;
+  projectKey: string;
+  channelName: string;
+  amount: string;
+  selectedServices: string[];
+  isSubscription: boolean;
+  subscriptionName?: string;
+}) {
+  try {
+    console.log('Sending email notification to customer:', customerData.customerEmail);
+
+    const emailData = {
+      clientmail: customerData.customerEmail,
+      clientname: customerData.customerName,
+      projectKey: customerData.projectKey
+    };
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/welcomeEmail`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(emailData),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('Error sending email notification:', errorData);
+      return null;
+    } else {
+      const responseData = await response.json();
+      console.log('Email notification sent successfully:', responseData);
+      return responseData;
+    }
+  } catch (error) {
+    console.error('Failed to send email notification:', error);
+    return null;
+  }
+}
+
 /**
- * Captures a PayPal order.
+ * Captures a PayPal order and creates project resources after successful payment.
  */
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/capture-paypal called");
   try {
-    const { orderID, isSubscription, subscriptionId } = await request.json();
-    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription, "subscriptionId:", subscriptionId);
+    const { orderID, isSubscription, subscriptionId, clerkId } = await request.json();
+    console.log("[DEBUG] Request orderID:", orderID, "isSubscription:", isSubscription, "subscriptionId:", subscriptionId, "clerkId:", clerkId);
+    console.log("[DEBUG] Request headers:", Object.fromEntries(request.headers.entries()));
 
     if (!orderID) {
       console.error("[DEBUG] Missing orderID");
@@ -88,7 +245,7 @@ export async function POST(request: NextRequest) {
       isSubscription: isSubscription || false,
       subscriptionId: subscriptionId || "",
       customId: captureResult.purchase_units[0]?.custom_id || "",
-      clerkId: ""
+      clerkId: clerkId || "" // Use clerkId from request body if available
     };
 
     // Extract customer data from order details or description
@@ -109,7 +266,11 @@ export async function POST(request: NextRequest) {
 
       // Extract clerk ID from custom_id (format: "clerkId_timestamp")
       const clerkIdMatch = customId.match(/^([^_]+)_/);
-      const clerkId = (clerkIdMatch && clerkIdMatch[1] !== 'guest') ? clerkIdMatch[1] : '';
+      const extractedClerkId = (clerkIdMatch && clerkIdMatch[1] !== 'guest' && clerkIdMatch[1] !== 'user') ? clerkIdMatch[1] : '';
+      paymentDetails.clerkId = extractedClerkId;
+
+      console.log("[DEBUG] Custom ID from PayPal:", customId);
+      console.log("[DEBUG] Extracted clerk ID from custom_id:", extractedClerkId);
 
       // Extract selected services from reference_id if available
       const referenceId = orderDetails.purchase_units[0]?.reference_id || "";
@@ -154,6 +315,78 @@ export async function POST(request: NextRequest) {
 
     console.log("[DEBUG] Deliverable payment data:", deliverablePaymentData);
 
+    // STEP 2: Create project resources after successful payment
+    console.log("[DEBUG] Payment successful, creating project resources...");
+
+    // Get subscription details if applicable
+    let subscriptionName = null;
+    if (isSubscription && subscriptionId) {
+      try {
+        const subscriptionResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`);
+        if (subscriptionResponse.ok) {
+          const subscriptionPlans = await subscriptionResponse.json();
+          const selectedPlan = subscriptionPlans.find((plan: any) => plan.id === subscriptionId);
+          if (selectedPlan) {
+            subscriptionName = selectedPlan.name;
+          }
+        }
+      } catch (error) {
+        console.error("[DEBUG] Error fetching subscription details:", error);
+      }
+    }
+
+    // Create Jira project
+    const jiraResult = await createJiraProject({
+      customerEmail: paymentDetails.customerEmail,
+      customerName: paymentDetails.customerName,
+      isSubscription: paymentDetails.isSubscription,
+      subscriptionId: paymentDetails.subscriptionId,
+      selectedServices: paymentDetails.selectedServices,
+      sessionId: orderID
+    });
+
+    // Create Slack channel
+    const slackResult = await createSlackChannel({
+      customerEmail: paymentDetails.customerEmail,
+      customerName: paymentDetails.customerName,
+      sessionId: orderID
+    });
+
+    // Get the best available clerk ID
+    const finalClerkId = paymentDetails.clerkId ||
+      clerkId ||
+      request.headers.get("x-clerk-id") ||
+      request.headers.get("authorization")?.replace("Bearer ", "") ||
+      'anonymous';
+
+    console.log("[DEBUG] Final clerk ID being used:", finalClerkId);
+
+    // Send project information
+    if (jiraResult && slackResult) {
+      await sendProjectInfo({
+        clerk_id: finalClerkId,
+        projectkey: jiraResult.projectKey,
+        jiraurl: `https://pfa.atlassian.net/jira/software/projects/${jiraResult.projectKey}/boards`,
+        slackurl: `https://slack.com/app_redirect?channel=${slackResult.channelName}`
+      });
+    }
+
+    // STEP 3: Send email notification to client
+    if (jiraResult && slackResult) {
+      await sendEmailNotification({
+        customerEmail: paymentDetails.customerEmail,
+        customerName: paymentDetails.customerName,
+        projectKey: jiraResult.projectKey,
+        channelName: slackResult.channelName,
+        amount: paymentDetails.amount || "0",
+        selectedServices: paymentDetails.selectedServices,
+        isSubscription: paymentDetails.isSubscription,
+        subscriptionName: subscriptionName
+      });
+    }
+
+    console.log("[DEBUG] Project creation and email notification completed");
+
     return NextResponse.json({
       status: "ORDER_CAPTURED",
       orderId: paymentDetails.orderId,
@@ -164,7 +397,11 @@ export async function POST(request: NextRequest) {
       customerName: paymentDetails.customerName,
       selectedServices: paymentDetails.selectedServices,
       isSubscription: paymentDetails.isSubscription,
-      subscriptionId: paymentDetails.subscriptionId
+      subscriptionId: paymentDetails.subscriptionId,
+      projectCreated: !!jiraResult,
+      slackCreated: !!slackResult,
+      projectKey: jiraResult?.projectKey,
+      channelName: slackResult?.channelName
     });
 
   } catch (error) {
