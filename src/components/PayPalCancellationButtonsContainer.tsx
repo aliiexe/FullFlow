@@ -121,35 +121,20 @@ export default function PayPalCancellationButtonsContainer({
           monthsToPay
         }),
       });
-      
-      console.log("[DEBUG] Received response from capture-paypal-cancellation endpoint", captureResponse);
-      
+
       if (!captureResponse.ok) {
-        const errorText = await captureResponse.text();
-        console.error("[DEBUG] Cancellation capture failed:", errorText);
-        throw new Error(`Cancellation payment capture failed: ${errorText}`);
+        const errorData = await captureResponse.json();
+        throw new Error(errorData.error || `Failed to capture payment: ${captureResponse.status}`);
       }
-      
-      const captureResult = await captureResponse.json();
-      console.log("[DEBUG] Cancellation payment captured successfully:", captureResult);
-      
-      setError(null);
-      
-      // Call success callback if provided
+
+      const result = await captureResponse.json();
+      console.log("[DEBUG] Capture successful:", result);
       if (onPaymentSuccess) {
         onPaymentSuccess();
       }
-      
-      // Show success message
-      setTimeout(() => {
-        alert("Subscription cancelled successfully! Your payment has been processed.");
-      }, 1000);
-      
-    } catch (err) {
-      console.error("[DEBUG] Cancellation payment approval error:", err);
-      setError(
-        err instanceof Error ? err.message : "Cancellation payment processing failed"
-      );
+    } catch (error) {
+      console.error("[DEBUG] Error capturing payment:", error);
+      setError(error instanceof Error ? error.message : "Failed to process payment");
     } finally {
       setIsLoading(false);
     }
