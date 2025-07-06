@@ -129,7 +129,9 @@ export default function PayPalCancellationButtonsContainer({
 
       const result = await captureResponse.json();
       console.log("[DEBUG] Capture successful:", result);
-      onPaymentSuccess();
+      if (onPaymentSuccess) {
+        onPaymentSuccess();
+      }
     } catch (error) {
       console.error("[DEBUG] Error capturing payment:", error);
       setError(error instanceof Error ? error.message : "Failed to process payment");
