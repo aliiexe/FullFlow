@@ -37,6 +37,7 @@ interface UserPayment {
   selected_deliverable_name: string | null;
   subscription_tier_name: string | null;
   subscription_id?: string;
+  subscription_tier_id?: string;
 }
 
 // Update UserData interface
@@ -56,16 +57,25 @@ interface UserData {
 // Add new interface for subscriptions
 interface UserSubscription {
   subscription_id: string;
-  subscription_amount: number;
-  subscription_date: string;
-  subscription_status: string;
-  subscription_tier_name: string;
-  renewal_date?: string;
+  subscription_tier_id: string;
+  status: string;
+  start_date: string;
+  end_date: string;
+}
+
+const SUBSCRIPTION_TIERS = {
+  '85fb4214-af39-4a63-8020-daa8a48ec975': 'Monthly Flow',
+  '4b90e07a-91e2-4269-87a2-5c4ebe07a4e9': 'Half Flow',
+  '6f862c97-b368-4f59-9546-89461af80256': 'One Flow'
+} as const;
+
+function getSubscriptionTierName(tierId: string): string {
+  return SUBSCRIPTION_TIERS[tierId as keyof typeof SUBSCRIPTION_TIERS] || tierId;
 }
 
 // Helper to get status from payment (status or fallback to payment_status)
 function getPaymentStatus(payment: UserPayment): string {
-  return payment.payment_status || payment.status || '';
+  return payment.payment_status || payment.status || "";
 }
 
 export default function Dashboard() {
@@ -78,7 +88,13 @@ export default function Dashboard() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelingSubscription, setCancelingSubscription] = useState(false);
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
-  const [subscriptionToCancel, setSubscriptionToCancel] = useState<UserSubscription | null>(null);
+  const [subscriptionToCancel, setSubscriptionToCancel] =
+    useState<UserSubscription | null>(null);
+  const [cancelResult, setCancelResult] = useState<null | {
+    cancelMessage: string;
+    payToCancelAmount?: number | null;
+  }>(null);
+  const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -110,7 +126,16 @@ export default function Dashboard() {
         // Using the users endpoint with clerk_id parameter
         const response = await fetch(`${apiUrl}/api/users?clerk_id=${userId}`);
         if (!response.ok) {
-          throw new Error(`API error: ${response.status}`);
+          if (response.status === 404) {
+            alert(
+              "Cancellation service is currently unavailable. Please try again later."
+            );
+            return;
+          }
+          const errorData = await response.json();
+          throw new Error(
+            errorData.error || `HTTP error! status: ${response.status}`
+          );
         }
 
         const contentType = response.headers.get("content-type");
@@ -138,57 +163,18 @@ export default function Dashboard() {
         setUserData(result.data);
         console.log("User data fetched:", result.data);
         console.log("Projects count:", result.data.projects?.length || 0);
+
+        setCancelResult({
+          cancelMessage: result.cancelMessage,
+          payToCancelAmount: result.payToCancelAmount,
+        });
+        // Optionally, close the modal only if canCancel is true
+        if (result.canCancel) {
+          setShowCancelModal(false);
+          setSubscriptionToCancel(null);
+        }
       } catch (err) {
         console.warn("Using mock user data:", err);
-        // Provide mock user data similar to your API response
-        setUserData({
-          user_id: "mock-user-id",
-          user_fullname: "Demo User",
-          user_email: "demo@example.com",
-          clerk_id: userId || "mock-clerk-id",
-          projects: [
-            {
-              projectkey: "DEMO-2024",
-              jiraurl:
-                "https://fullflow.atlassian.net/jira/software/projects/DEMO/boards",
-              slackurl: "https://slack.com/app_redirect?channel=demo-project",
-            },
-          ],
-          project_description:
-            "Website redesign with custom CMS integration and e-commerce functionality. Including responsive design and SEO optimization.",
-          project_status: "In Progress",
-          renewal_date: "2024-06-13", // Format: YYYY-MM-DD
-          payments: [
-            {
-              payment_id: "mock-payment-1",
-              payment_amount: 1500,
-              payment_date: new Date().toISOString(),
-              payment_type: "deliverable",
-              payment_status: "completed",
-              selected_deliverable_name: "Website Development",
-              subscription_tier_name: null,
-            },
-            {
-              payment_id: "mock-payment-2",
-              payment_amount: 39.99,
-              payment_date: new Date().toISOString(),
-              payment_type: "subscription",
-              payment_status: "active",
-              selected_deliverable_name: null,
-              subscription_tier_name: "Professional Plan",
-            },
-          ],
-          subscriptions: [
-            {
-              subscription_id: "mock-subscription-1",
-              subscription_amount: 39.99,
-              subscription_date: new Date().toISOString(),
-              subscription_status: "active",
-              subscription_tier_name: "Professional Plan",
-              renewal_date: "2024-06-13",
-            },
-          ],
-        });
       }
     } catch (err) {
       console.error("Error fetching user data:", err);
@@ -200,66 +186,72 @@ export default function Dashboard() {
     }
   }, [userId, isLoaded, isSignedIn]);
 
-  // Kick off data fetch
+  // Fetch subscriptions from /api/user_subs
+  const fetchSubscriptions = useCallback(async () => {
+    if (!isLoaded || !isSignedIn || !userId) return;
+    try {
+      const apiUrl =
+        process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      const response = await fetch(
+        `${apiUrl}/api/user_subs?clerk_id=${userId}`
+      );
+      if (response.ok) {
+        const result = await response.json();
+        setSubscriptions(result.data || []);
+      }
+    } catch (err) {
+      console.error("Error fetching subscriptions:", err);
+    }
+  }, [userId, isLoaded, isSignedIn]);
+
+  // Fetch both user data and subscriptions
   useEffect(() => {
     if (isLoaded && isSignedIn && userId) {
       fetchUserData();
+      fetchSubscriptions();
     }
-  }, [fetchUserData, isLoaded, isSignedIn, userId]);
+  }, [fetchUserData, fetchSubscriptions, isLoaded, isSignedIn, userId]);
 
   // Handle subscription cancellation
   const handleCancelSubscription = async () => {
     if (!userData || !subscriptionToCancel) return;
     setCancelingSubscription(true);
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
-      const response = await fetch(`${apiUrl}/api/cancel_sub`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      // Log the data being sent to the cancel endpoint
+      console.log("[Cancel API] Sending:", {
+        clerk_id: userData.clerk_id,
+        subscription_id: subscriptionToCancel.subscription_id,
+      });
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cancel_sub`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clerk_id: userData.clerk_id,
-          subscription_id: subscriptionToCancel.subscription_id,
+          clerk_id: userData.clerk_id, // The user's Clerk ID
+          subscription_id: subscriptionToCancel.subscription_id, // The subscription ID to cancel
         }),
       });
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || `HTTP error! status: ${response.status}`);
+        throw new Error(
+          errorData.error || `HTTP error! status: ${response.status}`
+        );
       }
       const result = await response.json();
-      console.log("Subscription cancellation result:", result);
-      // Update local state to reflect cancellation
-      if (userData) {
-        const updatedPayments = userData.payments.map((payment) => {
-          if (
-            payment.payment_type === "subscription" &&
-            payment.subscription_tier_name === subscriptionToCancel.subscription_tier_name &&
-            getPaymentStatus(payment) !== "canceled"
-          ) {
-            return { ...payment, payment_status: "canceled" };
-          }
-          return payment;
-        });
-        const updatedSubscriptions = userData.subscriptions.map((sub) => {
-          if (sub.subscription_id === subscriptionToCancel.subscription_id) {
-            return { ...sub, subscription_status: "canceled" };
-          }
-          return sub;
-        });
-        setUserData({
-          ...userData,
-          payments: updatedPayments,
-          subscriptions: updatedSubscriptions,
-        });
+      setCancelResult({
+        cancelMessage: result.cancelMessage,
+        payToCancelAmount: result.payToCancelAmount,
+      });
+      // Optionally, close the modal if canCancel is true
+      if (result.canCancel) {
+        setShowCancelModal(false);
+        setSubscriptionToCancel(null);
+        setCancelResult(null);
       }
-      setShowCancelModal(false);
-      setSubscriptionToCancel(null);
-      const message = result.canCancel
-        ? `Subscription cancelled successfully. ${result.cancelMessage || "You'll have access until the end of your current billing period."}`
-        : "Subscription cancellation processed.";
-      alert(message);
     } catch (error) {
       console.error("Error canceling subscription:", error);
-      alert(`Failed to cancel subscription: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      setCancelResult({
+        cancelMessage: error instanceof Error ? error.message : "Unknown error",
+      });
     } finally {
       setCancelingSubscription(false);
     }
@@ -331,8 +323,7 @@ export default function Dashboard() {
 
   // Get subscription data from payments
   const activeSubscription = userData?.subscriptions?.find(
-    (sub) =>
-      sub.subscription_status === "active" || sub.subscription_status === "paid"
+    (sub) => sub.status === "active"
   );
 
   // Main dashboard
@@ -420,66 +411,40 @@ export default function Dashboard() {
               </div>
             </div>
 
-            {/* Subscription Card - similar to the image */}
+            {/* Subscription Card */}
             {activeSubscription && (
               <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                 <div className="p-6 border-b border-white/10 flex justify-between items-center">
                   <h2 className="text-xl font-semibold text-white">
                     Your Plan
                   </h2>
-                  {userData.renewal_date && (
-                    <span className="text-sm text-gray-400">
-                      Renews {formatDate(activeSubscription.renewal_date)}
-                    </span>
-                  )}
+                  <span className="text-sm text-gray-400">
+                    Valid until {formatDate(activeSubscription.end_date)}
+                  </span>
                 </div>
                 <div className="p-6">
                   <div className="flex justify-between items-baseline mb-4">
                     <div>
                       <h3 className="font-semibold text-white text-lg">
-                        {activeSubscription.subscription_tier_name ||
-                          "Professional"}
+                        {getSubscriptionTierName(activeSubscription.subscription_tier_id)}
                       </h3>
-                      <p className="text-2xl font-bold text-white mt-1">
-                        ${activeSubscription.subscription_amount.toFixed(2)}
-                        /month
-                      </p>
                       <p className="text-sm text-gray-400 mt-1">
-                        4 included users
+                        Subscription ID: {activeSubscription.subscription_id}
                       </p>
                     </div>
                     <span
                       className={`px-3 py-1 text-sm font-medium rounded-full ${
-                        getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "completed" ||
-                        getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "paid"
+                        activeSubscription.status === "active"
                           ? "bg-green-500/20 text-green-400"
                           : "bg-red-500/20 text-red-400"
                       }`}
                     >
-                      {getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment)}
+                      {activeSubscription.status}
                     </span>
                   </div>
 
-                  <div className="flex items-center justify-between pt-6 mt-6 border-t border-white/10">
-                    <div>
-                      <h4 className="text-sm font-medium text-gray-400">
-                        Additional Users
-                      </h4>
-                      <p className="text-white mt-1">0 additional users</p>
-                    </div>
-                    <button
-                      className="text-indigo-400 hover:text-indigo-300 text-sm"
-                      onClick={() => {
-                        /* Add user functionality */
-                      }}
-                    >
-                      Add More
-                    </button>
-                  </div>
-
                   <div className="pt-6 mt-6 border-t border-white/10">
-                    {getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "active" ||
-                    getPaymentStatus(userData.payments.find(p => p.subscription_tier_name === activeSubscription.subscription_tier_name) as UserPayment) === "paid" ? (
+                    {activeSubscription.status === "active" ? (
                       <button
                         onClick={() => {
                           setSubscriptionToCancel(activeSubscription);
@@ -639,7 +604,8 @@ export default function Dashboard() {
             >
               {/* Separate Deliverables and Subscriptions */}
               {/* Deliverables Section */}
-              {userData.payments.filter(p => p.payment_type === "deliverable").length > 0 && (
+              {userData.payments.filter((p) => p.payment_type === "deliverable")
+                .length > 0 && (
                 <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                   <div className="p-6 border-b border-white/10">
                     <h2 className="text-xl font-semibold text-white flex items-center">
@@ -654,15 +620,25 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-white/10">
-                          <th className="px-6 py-3 text-sm font-medium">Date</th>
-                          <th className="px-6 py-3 text-sm font-medium">Service</th>
-                          <th className="px-6 py-3 text-sm font-medium">Amount</th>
-                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Date
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Service
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Amount
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Status
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
                         {userData.payments
-                          .filter(payment => payment.payment_type === "deliverable")
+                          .filter(
+                            (payment) => payment.payment_type === "deliverable"
+                          )
                           .sort((a, b) => {
                             const dateA = a.payment_date
                               ? new Date(a.payment_date).getTime()
@@ -679,14 +655,18 @@ export default function Dashboard() {
                             >
                               <td className="px-6 py-4 text-white">
                                 {payment.payment_date
-                                  ? new Date(payment.payment_date).toLocaleDateString()
+                                  ? new Date(
+                                      payment.payment_date
+                                    ).toLocaleDateString()
                                   : "Pending"}
                               </td>
                               <td className="px-6 py-4 text-white">
                                 {payment.selected_deliverable_name || "-"}
                               </td>
                               <td className="px-6 py-4 text-white">
-                                ${payment.payment_amount?.toLocaleString() ?? "0.00"}
+                                $
+                                {payment.payment_amount?.toLocaleString() ??
+                                  "0.00"}
                               </td>
                               <td className="px-6 py-4">
                                 <span
@@ -711,108 +691,91 @@ export default function Dashboard() {
               )}
 
               {/* Subscriptions Section */}
-              {userData.payments.filter(p => p.payment_type === "subscription").length > 0 && (
+              {userData.subscriptions && userData.subscriptions.length > 0 && (
                 <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                   <div className="p-6 border-b border-white/10">
                     <h2 className="text-xl font-semibold text-white flex items-center">
                       <CardIcon className="mr-2 h-5 w-5" />
-                      Subscription Payments
+                      Active Subscriptions
                     </h2>
                     <p className="text-sm text-gray-400 mt-1">
-                      Recurring subscription payments
+                      Your current subscription plans
                     </p>
                   </div>
                   <div className="overflow-x-auto">
                     <table className="w-full">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-white/10">
-                          <th className="px-6 py-3 text-sm font-medium">Date</th>
-                          <th className="px-6 py-3 text-sm font-medium">Plan</th>
-                          <th className="px-6 py-3 text-sm font-medium">Amount</th>
-                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Start Date
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            End Date
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Plan
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Subscription ID
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Status
+                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">
+                            Actions
+                          </th>
                         </tr>
                       </thead>
                       <tbody>
-                        {userData.payments
-                          .filter(payment => payment.payment_type === "subscription")
-                          .sort((a, b) => {
-                            const dateA = a.payment_date
-                              ? new Date(a.payment_date).getTime()
-                              : 0;
-                            const dateB = b.payment_date
-                              ? new Date(b.payment_date).getTime()
-                              : 0;
-                            return dateB - dateA;
-                          })
-                          .map((payment: UserPayment) => {
-                            // LOG: Print each payment row
-                            console.log('[Subscription Payment Row]', payment);
-                            const showCancel =
-                              getPaymentStatus(payment) === "paid" &&
-                              (payment.subscription_id || payment.payment_id);
-                            if (showCancel) {
-                              console.log('[Show Cancel Button]', payment.payment_id, payment.subscription_id, getPaymentStatus(payment));
-                            }
-                            return (
-                              <tr
-                                key={payment.payment_id}
-                                className="border-b border-white/5 hover:bg-white/[0.02]"
-                              >
-                                <td className="px-6 py-4 text-white">
-                                  {payment.payment_date
-                                    ? new Date(payment.payment_date).toLocaleDateString()
-                                    : "Pending"}
-                                </td>
-                                <td className="px-6 py-4 text-white">
-                                  {payment.subscription_tier_name || "-"}
-                                  {/* Debug badge for subscription_id */}
-                                  {payment.subscription_id && (
-                                    <span className="ml-2 px-2 py-1 text-[10px] bg-gray-700 text-gray-200 rounded">
-                                      ID: {payment.subscription_id}
-                                    </span>
-                                  )}
-                                </td>
-                                <td className="px-6 py-4 text-white">
-                                  ${payment.payment_amount?.toLocaleString() ?? "0.00"}
-                                </td>
-                                <td className="px-6 py-4 flex items-center gap-2">
-                                  <span
-                                    className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                      getPaymentStatus(payment) === "completed" ||
-                                      getPaymentStatus(payment) === "paid"
-                                        ? "bg-green-500/20 text-green-400"
-                                        : getPaymentStatus(payment) === "active"
-                                        ? "bg-blue-500/20 text-blue-400"
-                                        : getPaymentStatus(payment) === "canceled"
-                                        ? "bg-red-500/20 text-red-400"
-                                        : "bg-amber-500/20 text-amber-400"
-                                    }`}
+                        {userData.subscriptions.map((subscription) => {
+                          const canCancel = subscription.status === "active";
+
+                          return (
+                            <tr key={subscription.subscription_id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                              <td className="px-6 py-4 text-white">
+                                {formatDate(subscription.start_date)}
+                              </td>
+                              <td className="px-6 py-4 text-white">
+                                {formatDate(subscription.end_date)}
+                              </td>
+                              <td className="px-6 py-4 text-white">
+                                {getSubscriptionTierName(subscription.subscription_tier_id)}
+                              </td>
+                              <td className="px-6 py-4 text-white">
+                                <span className="px-2 py-1 text-[10px] bg-gray-700 text-gray-200 rounded">
+                                  {subscription.subscription_id}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                <span
+                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                    subscription.status === "active"
+                                      ? "bg-green-500/20 text-green-400"
+                                      : subscription.status === "canceled"
+                                      ? "bg-red-500/20 text-red-400"
+                                      : "bg-amber-500/20 text-amber-400"
+                                  }`}
+                                >
+                                  {subscription.status}
+                                </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                {canCancel && (
+                                  <button
+                                    className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                    onClick={() => {
+                                      setSubscriptionToCancel(subscription);
+                                      setShowCancelModal(true);
+                                    }}
+                                    disabled={cancelingSubscription}
                                   >
-                                    {getPaymentStatus(payment)}
-                                  </span>
-                                  {/* Cancel button for paid subscriptions with subscription_id */}
-                                  {showCancel && (
-                                    <button
-                                      className="ml-2 px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                      onClick={() => {
-                                        setSubscriptionToCancel({
-                                          subscription_id: payment.subscription_id || payment.payment_id,
-                                          subscription_tier_name: payment.subscription_tier_name || "",
-                                          subscription_amount: payment.payment_amount || 0,
-                                          subscription_date: payment.payment_date || "",
-                                          subscription_status: getPaymentStatus(payment),
-                                        });
-                                        setShowCancelModal(true);
-                                      }}
-                                      disabled={cancelingSubscription}
-                                    >
-                                      Cancel
-                                    </button>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
+                                    Cancel
+                                  </button>
+                                )}
+                              </td>
+                            </tr>
+                          );
+                        })}
                       </tbody>
                     </table>
                   </div>
@@ -838,7 +801,11 @@ export default function Dashboard() {
                 </h3>
               </div>
               <button
-                onClick={() => { setShowCancelModal(false); setSubscriptionToCancel(null); }}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSubscriptionToCancel(null);
+                  setCancelResult(null);
+                }}
                 className="text-gray-400 hover:text-white"
               >
                 <X className="h-5 w-5" />
@@ -853,26 +820,53 @@ export default function Dashboard() {
 
             <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
               <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-300 text-sm font-medium">Current Plan</span>
-                <span className="text-blue-300 text-sm">${subscriptionToCancel.subscription_amount}/month</span>
+                <span className="text-blue-300 text-sm font-medium">
+                  Subscription ID
+                </span>
+                <span className="text-blue-300 text-sm">
+                  {subscriptionToCancel.subscription_id}
+                </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-blue-300 text-sm">Plan Name</span>
-                <span className="text-blue-300 text-sm">{subscriptionToCancel.subscription_tier_name}</span>
+                <span className="text-blue-300 text-sm">Plan</span>
+                <span className="text-blue-300 text-sm">
+                  {getSubscriptionTierName(subscriptionToCancel.subscription_tier_id)}
+                </span>
+              </div>
+              <div className="flex items-center justify-between mt-2">
+                <span className="text-blue-300 text-sm">Valid Until</span>
+                <span className="text-blue-300 text-sm">
+                  {formatDate(subscriptionToCancel.end_date)}
+                </span>
               </div>
             </div>
 
+            {/* Show cancel result message from API */}
+            {cancelResult && (
+              <div className="p-4 bg-blue-100 text-blue-900 rounded mb-4">
+                <p>{cancelResult.cancelMessage}</p>
+                {cancelResult.payToCancelAmount && (
+                  <p className="font-bold mt-2">
+                    Amount to pay: ${cancelResult.payToCancelAmount}
+                  </p>
+                )}
+              </div>
+            )}
+
             <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
               <p className="text-amber-300 text-sm">
-                Your subscription will remain active until the end of your
-                current billing cycle. You can reactivate your subscription
-                anytime before it expires.
+                Your subscription will remain active until {formatDate(subscriptionToCancel.end_date)}.
+                You can reactivate your subscription anytime before it expires.
               </p>
             </div>
 
             <div className="flex justify-end space-x-3">
               <button
-                onClick={() => { setShowCancelModal(false); setSubscriptionToCancel(null); }}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSubscriptionToCancel(null);
+                  setCancelResult(null);
+                }}
                 className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                 disabled={cancelingSubscription}
               >
