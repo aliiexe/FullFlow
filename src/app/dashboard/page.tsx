@@ -213,12 +213,19 @@ export default function Dashboard() {
 
   // Handle subscription cancellation check
   const handleCheckCancellation = async () => {
-    if (!userData || !subscriptionToCancel) return;
+    if (!userData || !subscriptionToCancel) {
+      console.log("[Cancel Check] Missing required data:", { userData: !!userData, subscriptionToCancel: !!subscriptionToCancel });
+      return;
+    }
+    
+    console.log("[Cancel Check] Starting cancellation check for subscription:", subscriptionToCancel.subscription_id);
     setCancelingSubscription(true);
+    
     try {
-      console.log("[Cancel Check] Sending:", {
+      console.log("[Cancel Check] Sending cancellation check request:", {
         clerk_id: userData.clerk_id,
         subscription_id: subscriptionToCancel.subscription_id,
+        subscription_tier_id: subscriptionToCancel.subscription_tier_id
       });
 
       // If it's a Monthly Flow subscription, directly cancel it
@@ -229,6 +236,14 @@ export default function Dashboard() {
           throw new Error("API URL not configured");
         }
 
+        console.log("[Cancel Check] Calling inactivate_sub for Monthly Flow with:", {
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
+          months: null,
+          payment_method: null,
+          transaction_id: null
+        });
+
         const response = await fetch(`${apiUrl}/api/inactivate_sub`, {
           method: "POST",
           headers: { 
@@ -238,14 +253,21 @@ export default function Dashboard() {
           body: JSON.stringify({
             clerk_id: userData.clerk_id,
             subscription_id: subscriptionToCancel.subscription_id,
-            months_to_pay: null,
+            months: null,
             payment_method: null,
             transaction_id: null
           }),
         });
 
+        console.log("[Cancel Check] Monthly Flow cancellation response:", {
+          status: response.status,
+          statusText: response.statusText,
+          ok: response.ok
+        });
+
         if (!response.ok) {
           const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+          console.error("[Cancel Check] Monthly Flow cancellation failed:", errorData);
           throw new Error(errorData.error || `Failed to cancel subscription: ${response.status}`);
         }
 
@@ -275,10 +297,17 @@ export default function Dashboard() {
       }
 
       // For other subscription types, check cancellation fee
+      console.log("[Cancel Check] Non-Monthly Flow subscription - checking cancellation fee");
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
       if (!apiUrl) {
         throw new Error("API URL not configured");
       }
+
+      console.log("[Cancel Check] Calling cancel_sub API with:", {
+        clerk_id: userData.clerk_id,
+        subscription_id: subscriptionToCancel.subscription_id,
+        url: `${apiUrl}/api/cancel_sub`
+      });
 
       const response = await fetch(`${apiUrl}/api/cancel_sub`, {
         method: "POST",
@@ -290,6 +319,12 @@ export default function Dashboard() {
           clerk_id: userData.clerk_id,
           subscription_id: subscriptionToCancel.subscription_id,
         }),
+      });
+
+      console.log("[Cancel Check] cancel_sub API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
       });
 
       if (!response.ok) {
@@ -306,7 +341,7 @@ export default function Dashboard() {
       }
 
       const result = await response.json();
-      console.log("[Cancel Check] Result:", result);
+      console.log("[Cancel Check] cancel_sub result:", result);
       
       setCancelResult({
         success: result.success || false,
@@ -319,8 +354,13 @@ export default function Dashboard() {
 
       // If there's an amount to pay, show payment step
       if (result.payToCancelAmount && result.payToCancelAmount > 0) {
+        console.log("[Cancel Check] Payment required for cancellation:", {
+          amount: result.payToCancelAmount,
+          monthsToPay: result.months_to_pay
+        });
         setShowPaymentStep(true);
       } else {
+        console.log("[Cancel Check] No payment required, proceeding with final cancellation");
         // If no payment needed, proceed with final cancellation
         await handleFinalCancellation();
         
@@ -335,7 +375,7 @@ export default function Dashboard() {
         }, 2000);
       }
     } catch (error) {
-      console.error("Error checking cancellation:", error);
+      console.error("[Cancel Check] Error checking cancellation:", error);
       setCancelResult({
         success: false,
         cancelMessage: error instanceof Error ? error.message : "Unknown error",
@@ -346,8 +386,37 @@ export default function Dashboard() {
   };
 
   // Handle final cancellation after payment
-  const handleFinalCancellation = async () => {
-    if (!userData || !subscriptionToCancel || !cancelResult) return;
+  const handleFinalCancellation = async (transactionId = "PENDING_PAYPAL") => {
+    if (!userData || !subscriptionToCancel || !cancelResult) {
+      console.log("[Final Cancellation] Missing required data:", {
+        userData: !!userData,
+        subscriptionToCancel: !!subscriptionToCancel,
+        cancelResult: !!cancelResult
+      });
+      return;
+    }
+    
+    console.log("[Final Cancellation] Starting final cancellation with:", {
+      clerk_id: userData.clerk_id,
+      subscription_id: subscriptionToCancel.subscription_id,
+      months: cancelResult.monthsToPay || 0,
+      payment_method: "PayPal",
+      transaction_id: transactionId
+    });
+    
+    // Validate required parameters
+    const monthsToPay = cancelResult.monthsToPay || 0;
+    if (!userData.clerk_id || !subscriptionToCancel.subscription_id || 
+        monthsToPay === null || monthsToPay === undefined ||
+        !transactionId) {
+      console.error("[Final Cancellation] Missing required parameters:", {
+        clerk_id: !!userData.clerk_id,
+        subscription_id: !!subscriptionToCancel.subscription_id,
+        months: monthsToPay !== null && monthsToPay !== undefined,
+        transaction_id: !!transactionId
+      });
+      throw new Error("Missing required parameters for subscription inactivation");
+    }
     
     try {
       const apiUrl = process.env.NEXT_PUBLIC_API_URL;
@@ -355,28 +424,44 @@ export default function Dashboard() {
         throw new Error("API URL not configured");
       }
       
+      console.log("[Final Cancellation] Calling inactivate_sub API with:", {
+        url: `${apiUrl}/api/inactivate_sub`,
+        data: {
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
+          months: monthsToPay,
+          payment_method: "PayPal",
+          transaction_id: transactionId
+        }
+      });
+      
       const inactivateResponse = await fetch(`${apiUrl}/api/inactivate_sub`, {
         method: "POST",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
           "Accept": "application/json"
         },
         body: JSON.stringify({
           clerk_id: userData.clerk_id,
           subscription_id: subscriptionToCancel.subscription_id,
-          months: cancelResult.monthsToPay || 0,
+          months: monthsToPay,
           payment_method: "PayPal",
-          payment_type: "subscription",
-          is_subscription: true,
-          subscription_tier_id: subscriptionToCancel.subscription_tier_id
+          transaction_id: transactionId
         }),
       });
-
+      
+      console.log("[Final Cancellation] inactivate_sub response:", {
+        status: inactivateResponse.status,
+        statusText: inactivateResponse.statusText,
+        ok: inactivateResponse.ok
+      });
+      
       if (!inactivateResponse.ok) {
         const errorData = await inactivateResponse.json().catch(() => ({ error: "Failed to parse error response" }));
+        console.error("[Final Cancellation] inactivate_sub failed:", errorData);
         throw new Error(errorData.error || `Failed to inactivate subscription: ${inactivateResponse.status}`);
       }
-
+      
       const result = await inactivateResponse.json();
       console.log("[Final Cancellation] Success:", result);
       
@@ -394,9 +479,10 @@ export default function Dashboard() {
   };
 
   // Handle successful payment
-  const handlePaymentSuccess = () => {
-    console.log("[Payment Success] Cancellation payment completed");
-    
+  const handlePaymentSuccess = (transactionId?: string) => {
+    console.log("[Payment Success] Cancellation payment completed with transaction ID:", transactionId);
+    // Call final cancellation with the real PayPal transaction ID or a default
+    handleFinalCancellation(transactionId || "PENDING_PAYPAL");
     // Close modal and refresh data after successful payment
     setTimeout(() => {
       setShowCancelModal(false);
