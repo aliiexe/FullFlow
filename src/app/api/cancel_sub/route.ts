@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
         // Extract the months_to_pay from the response
         const monthsToPay = result.months_to_pay || 0;
 
-        // Return the cancellation check result
+        // Return the cancellation check result with the expected structure
         return NextResponse.json({
             success: true,
             canCancel: result.canCancel !== false,
