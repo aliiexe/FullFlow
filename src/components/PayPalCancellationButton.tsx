@@ -18,7 +18,7 @@ interface PayPalCancellationButtonProps {
   subscriptionId: string;
   monthsToPay: number;
   clerkId: string;
-  onPaymentSuccess?: () => void;
+  onPaymentSuccess?: (transactionId?: string) => void;
 }
 
 export default function PayPalCancellationButton({

@@ -12,7 +12,7 @@ export interface PayPalCancellationButtonsContainerProps {
   user: UserResource;
   setIsLoading: (isLoading: boolean) => void;
   setError: (error: string | null) => void;
-  onPaymentSuccess?: () => void;
+  onPaymentSuccess?: (transactionId?: string) => void;
 }
 
 export default function PayPalCancellationButtonsContainer({
@@ -129,8 +129,16 @@ export default function PayPalCancellationButtonsContainer({
 
       const result = await captureResponse.json();
       console.log("[DEBUG] Capture successful:", result);
+      
+      // Extract transaction ID from the result
+      const transactionId = result.transactionId || result.captureId || data.orderID;
+      console.log("[DEBUG] Transaction ID for onPaymentSuccess:", transactionId);
+      
       if (onPaymentSuccess) {
-        onPaymentSuccess();
+        console.log("[DEBUG] Calling onPaymentSuccess with transaction ID:", transactionId);
+        onPaymentSuccess(transactionId);
+      } else {
+        console.log("[DEBUG] No onPaymentSuccess callback provided");
       }
     } catch (error) {
       console.error("[DEBUG] Error capturing payment:", error);

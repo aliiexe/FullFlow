@@ -61,7 +61,15 @@ export async function POST(request: NextRequest) {
     const result = await saveResponse.json();
     console.log("[DEBUG] Subscription cancelled successfully:", result);
 
-    return NextResponse.json(result);
+    // Return the result with transaction ID for the frontend
+    const responseData = {
+      ...result,
+      transactionId: captureData.id, // Include the PayPal capture ID as transaction ID
+      captureId: captureData.id
+    };
+
+    console.log("[DEBUG] Returning response with transaction ID:", responseData);
+    return NextResponse.json(responseData);
   } catch (error) {
     console.error("[DEBUG] Error in capture-paypal-cancellation:", error);
     return NextResponse.json(
