@@ -17,6 +17,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
+import PayPalButton from "../components/PayPalButton";
 
 // Update the Project interface to include project-specific fields
 interface Project {
@@ -63,6 +64,16 @@ interface UserSubscription {
   end_date: string;
 }
 
+// Add interface for cancellation result
+interface CancellationResult {
+  success: boolean;
+  cancelMessage: string;
+  payToCancelAmount?: number | null;
+  canCancel?: boolean;
+  monthsToPay?: number;
+  projectCreated?: boolean;
+}
+
 const SUBSCRIPTION_TIERS = {
   '85fb4214-af39-4a63-8020-daa8a48ec975': 'Monthly Flow',
   '4b90e07a-91e2-4269-87a2-5c4ebe07a4e9': 'Half Flow',
@@ -90,11 +101,9 @@ export default function Dashboard() {
   const [selectedProjectIndex, setSelectedProjectIndex] = useState(0);
   const [subscriptionToCancel, setSubscriptionToCancel] =
     useState<UserSubscription | null>(null);
-  const [cancelResult, setCancelResult] = useState<null | {
-    cancelMessage: string;
-    payToCancelAmount?: number | null;
-  }>(null);
+  const [cancelResult, setCancelResult] = useState<CancellationResult | null>(null);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
+  const [showPaymentStep, setShowPaymentStep] = useState(false);
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -128,7 +137,7 @@ export default function Dashboard() {
         if (!response.ok) {
           if (response.status === 404) {
             alert(
-              "Cancellation service is currently unavailable. Please try again later."
+              "User data not found. Please contact support."
             );
             return;
           }
@@ -163,16 +172,6 @@ export default function Dashboard() {
         setUserData(result.data);
         console.log("User data fetched:", result.data);
         console.log("Projects count:", result.data.projects?.length || 0);
-
-        setCancelResult({
-          cancelMessage: result.cancelMessage,
-          payToCancelAmount: result.payToCancelAmount,
-        });
-        // Optionally, close the modal only if canCancel is true
-        if (result.canCancel) {
-          setShowCancelModal(false);
-          setSubscriptionToCancel(null);
-        }
       } catch (err) {
         console.warn("Using mock user data:", err);
       }
@@ -212,48 +211,101 @@ export default function Dashboard() {
     }
   }, [fetchUserData, fetchSubscriptions, isLoaded, isSignedIn, userId]);
 
-  // Handle subscription cancellation
-  const handleCancelSubscription = async () => {
+  // Handle subscription cancellation check
+  const handleCheckCancellation = async () => {
     if (!userData || !subscriptionToCancel) return;
     setCancelingSubscription(true);
     try {
-      // Log the data being sent to the cancel endpoint
-      console.log("[Cancel API] Sending:", {
+      console.log("[Cancel Check] Sending:", {
         clerk_id: userData.clerk_id,
         subscription_id: subscriptionToCancel.subscription_id,
       });
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/cancel_sub`, {
+
+      const response = await fetch(`/api/cancel_sub`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          clerk_id: userData.clerk_id, // The user's Clerk ID
-          subscription_id: subscriptionToCancel.subscription_id, // The subscription ID to cancel
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
         }),
       });
+
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
           errorData.error || `HTTP error! status: ${response.status}`
         );
       }
+
       const result = await response.json();
+      console.log("[Cancel Check] Result:", result);
+      
       setCancelResult({
-        cancelMessage: result.cancelMessage,
+        success: result.success || false,
+        cancelMessage: result.cancelMessage || "Cancellation processed",
         payToCancelAmount: result.payToCancelAmount,
+        canCancel: result.canCancel !== false,
+        monthsToPay: result.monthsToPay || 0,
+        projectCreated: result.projectCreated || false
       });
-      // Optionally, close the modal if canCancel is true
-      if (result.canCancel) {
-        setShowCancelModal(false);
-        setSubscriptionToCancel(null);
-        setCancelResult(null);
+
+      // If there's an amount to pay, show payment step
+      if (result.payToCancelAmount && result.payToCancelAmount > 0) {
+        setShowPaymentStep(true);
+      } else {
+        // If no payment needed, close modal and refresh data
+        setTimeout(() => {
+          setShowCancelModal(false);
+          setSubscriptionToCancel(null);
+          setCancelResult(null);
+          setShowPaymentStep(false);
+          fetchUserData();
+          fetchSubscriptions();
+        }, 2000);
       }
     } catch (error) {
-      console.error("Error canceling subscription:", error);
+      console.error("Error checking cancellation:", error);
       setCancelResult({
+        success: false,
         cancelMessage: error instanceof Error ? error.message : "Unknown error",
       });
     } finally {
       setCancelingSubscription(false);
+    }
+  };
+
+  // Handle final cancellation after payment
+  const handleFinalCancellation = async () => {
+    if (!userData || !subscriptionToCancel || !cancelResult) return;
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      
+      const response = await fetch(`${apiUrl}/api/inactivate_sub`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
+          months: cancelResult.monthsToPay || 0,
+          payment_method: "PayPal"
+        }),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log("[Final Cancellation] Success:", result);
+        
+        // Close modal and refresh data
+        setShowCancelModal(false);
+        setSubscriptionToCancel(null);
+        setCancelResult(null);
+        setShowPaymentStep(false);
+        fetchUserData();
+        fetchSubscriptions();
+      }
+    } catch (error) {
+      console.error("Error in final cancellation:", error);
     }
   };
 
@@ -449,6 +501,8 @@ export default function Dashboard() {
                         onClick={() => {
                           setSubscriptionToCancel(activeSubscription);
                           setShowCancelModal(true);
+                          setCancelResult(null);
+                          setShowPaymentStep(false);
                         }}
                         className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                       >
@@ -766,6 +820,8 @@ export default function Dashboard() {
                                     onClick={() => {
                                       setSubscriptionToCancel(subscription);
                                       setShowCancelModal(true);
+                                      setCancelResult(null);
+                                      setShowPaymentStep(false);
                                     }}
                                     disabled={cancelingSubscription}
                                   >
@@ -805,6 +861,7 @@ export default function Dashboard() {
                   setShowCancelModal(false);
                   setSubscriptionToCancel(null);
                   setCancelResult(null);
+                  setShowPaymentStep(false);
                 }}
                 className="text-gray-400 hover:text-white"
               >
@@ -812,77 +869,146 @@ export default function Dashboard() {
               </button>
             </div>
 
-            <p className="text-gray-300 mb-4">
-              Are you sure you want to cancel your subscription? You'll lose
-              access to your Premium features at the end of your current billing
-              period.
-            </p>
+            {!showPaymentStep ? (
+              <>
+                <p className="text-gray-300 mb-4">
+                  Are you sure you want to cancel your subscription? You'll lose
+                  access to your Premium features at the end of your current billing
+                  period.
+                </p>
 
-            <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-blue-300 text-sm font-medium">
-                  Subscription ID
-                </span>
-                <span className="text-blue-300 text-sm">
-                  {subscriptionToCancel.subscription_id}
-                </span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-blue-300 text-sm">Plan</span>
-                <span className="text-blue-300 text-sm">
-                  {getSubscriptionTierName(subscriptionToCancel.subscription_tier_id)}
-                </span>
-              </div>
-              <div className="flex items-center justify-between mt-2">
-                <span className="text-blue-300 text-sm">Valid Until</span>
-                <span className="text-blue-300 text-sm">
-                  {formatDate(subscriptionToCancel.end_date)}
-                </span>
-              </div>
-            </div>
+                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-blue-300 text-sm font-medium">
+                      Subscription ID
+                    </span>
+                    <span className="text-blue-300 text-sm">
+                      {subscriptionToCancel.subscription_id}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-blue-300 text-sm">Plan</span>
+                    <span className="text-blue-300 text-sm">
+                      {getSubscriptionTierName(subscriptionToCancel.subscription_tier_id)}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between mt-2">
+                    <span className="text-blue-300 text-sm">Valid Until</span>
+                    <span className="text-blue-300 text-sm">
+                      {formatDate(subscriptionToCancel.end_date)}
+                    </span>
+                  </div>
+                </div>
 
-            {/* Show cancel result message from API */}
-            {cancelResult && (
-              <div className="p-4 bg-blue-100 text-blue-900 rounded mb-4">
-                <p>{cancelResult.cancelMessage}</p>
-                {cancelResult.payToCancelAmount && (
-                  <p className="font-bold mt-2">
-                    Amount to pay: ${cancelResult.payToCancelAmount}
+                {/* Show cancel result message from API */}
+                {cancelResult && (
+                  <div className={`p-4 rounded mb-4 ${
+                    cancelResult.success 
+                      ? "bg-green-500/10 border border-green-500/20 text-green-400"
+                      : "bg-red-500/10 border border-red-500/20 text-red-400"
+                  }`}>
+                    <p>{cancelResult.cancelMessage}</p>
+                    {cancelResult.payToCancelAmount && cancelResult.payToCancelAmount > 0 && (
+                      <p className="font-bold mt-2">
+                        Amount to pay: ${cancelResult.payToCancelAmount}
+                      </p>
+                    )}
+                    {cancelResult.monthsToPay && cancelResult.monthsToPay > 0 && (
+                      <p className="text-sm mt-1">
+                        Months to pay: {cancelResult.monthsToPay}
+                      </p>
+                    )}
+                  </div>
+                )}
+
+                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
+                  <p className="text-amber-300 text-sm">
+                    Your subscription will remain active until {formatDate(subscriptionToCancel.end_date)}.
+                    You can reactivate your subscription anytime before it expires.
                   </p>
-                )}
-              </div>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowCancelModal(false);
+                      setSubscriptionToCancel(null);
+                      setCancelResult(null);
+                      setShowPaymentStep(false);
+                    }}
+                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
+                    disabled={cancelingSubscription}
+                  >
+                    Keep Subscription
+                  </button>
+                  <button
+                    onClick={handleCheckCancellation}
+                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg flex items-center transition-colors"
+                    disabled={cancelingSubscription}
+                  >
+                    {cancelingSubscription && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    Check Cancellation
+                  </button>
+                </div>
+              </>
+            ) : (
+              <>
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-white mb-2">
+                    Payment Required for Cancellation
+                  </h4>
+                  <p className="text-gray-300 text-sm mb-4">
+                    To cancel your subscription, you need to pay for the remaining {cancelResult?.monthsToPay} months.
+                  </p>
+                  
+                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-blue-300 text-sm font-medium">
+                        Amount Due:
+                      </span>
+                      <span className="text-blue-300 text-lg font-bold">
+                        ${cancelResult?.payToCancelAmount}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-blue-300 text-sm">
+                        Months to Pay:
+                      </span>
+                      <span className="text-blue-300 text-sm">
+                        {cancelResult?.monthsToPay}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PayPal Button for Cancellation Payment */}
+                <div className="mb-4">
+                  <PayPalButton
+                    selectedServices={[]}
+                    totalPrice={cancelResult?.payToCancelAmount || 0}
+                    isSubscription={false}
+                    clerkId={userId || ""}
+                  />
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => setShowPaymentStep(false)}
+                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleFinalCancellation}
+                    className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
+                  >
+                    Complete Cancellation
+                  </button>
+                </div>
+              </>
             )}
-
-            <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
-              <p className="text-amber-300 text-sm">
-                Your subscription will remain active until {formatDate(subscriptionToCancel.end_date)}.
-                You can reactivate your subscription anytime before it expires.
-              </p>
-            </div>
-
-            <div className="flex justify-end space-x-3">
-              <button
-                onClick={() => {
-                  setShowCancelModal(false);
-                  setSubscriptionToCancel(null);
-                  setCancelResult(null);
-                }}
-                className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
-                disabled={cancelingSubscription}
-              >
-                Keep Subscription
-              </button>
-              <button
-                onClick={handleCancelSubscription}
-                className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg flex items-center transition-colors"
-                disabled={cancelingSubscription}
-              >
-                {cancelingSubscription && (
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                )}
-                Cancel Subscription
-              </button>
-            </div>
           </motion.div>
         </div>
       )}
