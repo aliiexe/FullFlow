@@ -221,9 +221,71 @@ export default function Dashboard() {
         subscription_id: subscriptionToCancel.subscription_id,
       });
 
-      const response = await fetch(`/api/cancel_sub`, {
+      // If it's a Monthly Flow subscription, directly cancel it
+      if (subscriptionToCancel.subscription_tier_id === '85fb4214-af39-4a63-8020-daa8a48ec975') {
+        console.log("[Cancel Check] Monthly Flow subscription - direct cancellation");
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+        if (!apiUrl) {
+          throw new Error("API URL not configured");
+        }
+
+        const response = await fetch(`${apiUrl}/api/inactivate_sub`, {
+          method: "POST",
+          headers: { 
+            "Content-Type": "application/json",
+            "Accept": "application/json"
+          },
+          body: JSON.stringify({
+            clerk_id: userData.clerk_id,
+            subscription_id: subscriptionToCancel.subscription_id,
+            months_to_pay: null,
+            payment_method: null,
+            transaction_id: null
+          }),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+          throw new Error(errorData.error || `Failed to cancel subscription: ${response.status}`);
+        }
+
+        const result = await response.json();
+        console.log("[Cancel Check] Direct cancellation result:", result);
+
+        setCancelResult({
+          success: true,
+          cancelMessage: "Monthly subscription cancelled successfully",
+          payToCancelAmount: 0,
+          canCancel: true,
+          monthsToPay: 0,
+          projectCreated: false
+        });
+
+        // Close modal and refresh data
+        setTimeout(() => {
+          setShowCancelModal(false);
+          setSubscriptionToCancel(null);
+          setCancelResult(null);
+          setShowPaymentStep(false);
+          fetchUserData();
+          fetchSubscriptions();
+        }, 2000);
+
+        return;
+      }
+
+      // For other subscription types, check cancellation fee
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        throw new Error("API URL not configured");
+      }
+
+      const response = await fetch(`${apiUrl}/api/cancel_sub`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
           clerk_id: userData.clerk_id,
           subscription_id: subscriptionToCancel.subscription_id,
@@ -231,9 +293,15 @@ export default function Dashboard() {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
+        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+        console.error("[Cancel Check] API error:", {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData,
+          url: `${apiUrl}/api/cancel_sub`
+        });
         throw new Error(
-          errorData.error || `HTTP error! status: ${response.status}`
+          errorData.error || `HTTP error! status: ${response.status} - ${response.statusText}`
         );
       }
 
@@ -245,7 +313,7 @@ export default function Dashboard() {
         cancelMessage: result.cancelMessage || "Cancellation processed",
         payToCancelAmount: result.payToCancelAmount,
         canCancel: result.canCancel !== false,
-        monthsToPay: result.monthsToPay || 0,
+        monthsToPay: result.months_to_pay || 0,
         projectCreated: result.projectCreated || false
       });
 
@@ -253,7 +321,10 @@ export default function Dashboard() {
       if (result.payToCancelAmount && result.payToCancelAmount > 0) {
         setShowPaymentStep(true);
       } else {
-        // If no payment needed, close modal and refresh data
+        // If no payment needed, proceed with final cancellation
+        await handleFinalCancellation();
+        
+        // Close modal and refresh data
         setTimeout(() => {
           setShowCancelModal(false);
           setSubscriptionToCancel(null);
@@ -279,33 +350,46 @@ export default function Dashboard() {
     if (!userData || !subscriptionToCancel || !cancelResult) return;
     
     try {
-      const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        throw new Error("API URL not configured");
+      }
       
-      const response = await fetch(`${apiUrl}/api/inactivate_sub`, {
+      const inactivateResponse = await fetch(`${apiUrl}/api/inactivate_sub`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { 
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
         body: JSON.stringify({
           clerk_id: userData.clerk_id,
           subscription_id: subscriptionToCancel.subscription_id,
           months: cancelResult.monthsToPay || 0,
-          payment_method: "PayPal"
+          payment_method: "PayPal",
+          payment_type: "subscription",
+          is_subscription: true,
+          subscription_tier_id: subscriptionToCancel.subscription_tier_id
         }),
       });
 
-      if (response.ok) {
-        const result = await response.json();
-        console.log("[Final Cancellation] Success:", result);
-        
-        // Close modal and refresh data
-        setShowCancelModal(false);
-        setSubscriptionToCancel(null);
-        setCancelResult(null);
-        setShowPaymentStep(false);
-        fetchUserData();
-        fetchSubscriptions();
+      if (!inactivateResponse.ok) {
+        const errorData = await inactivateResponse.json().catch(() => ({ error: "Failed to parse error response" }));
+        throw new Error(errorData.error || `Failed to inactivate subscription: ${inactivateResponse.status}`);
       }
+
+      const result = await inactivateResponse.json();
+      console.log("[Final Cancellation] Success:", result);
+      
+      // Close modal and refresh data
+      setShowCancelModal(false);
+      setSubscriptionToCancel(null);
+      setCancelResult(null);
+      setShowPaymentStep(false);
+      fetchUserData();
+      fetchSubscriptions();
     } catch (error) {
-      console.error("Error in final cancellation:", error);
+      console.error("[Final Cancellation] Error:", error);
+      throw error; // Re-throw to be handled by the caller
     }
   };
 
@@ -759,8 +843,8 @@ export default function Dashboard() {
                 </div>
               )}
 
-              {/* Subscriptions Section */}
-              {userData.subscriptions && userData.subscriptions.length > 0 && (
+              {/* Active Subscriptions */}
+              {userData.subscriptions && userData.subscriptions.filter(sub => sub.status === "active").length > 0 && (
                 <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
                   <div className="p-6 border-b border-white/10">
                     <h2 className="text-xl font-semibold text-white flex items-center">
@@ -775,31 +859,93 @@ export default function Dashboard() {
                     <table className="w-full">
                       <thead>
                         <tr className="text-left text-gray-400 border-b border-white/10">
-                          <th className="px-6 py-3 text-sm font-medium">
-                            Start Date
-                          </th>
-                          <th className="px-6 py-3 text-sm font-medium">
-                            End Date
-                          </th>
-                          <th className="px-6 py-3 text-sm font-medium">
-                            Plan
-                          </th>
-                          <th className="px-6 py-3 text-sm font-medium">
-                            Subscription ID
-                          </th>
-                          <th className="px-6 py-3 text-sm font-medium">
-                            Status
-                          </th>
-                          <th className="px-6 py-3 text-sm font-medium">
-                            Actions
-                          </th>
+                          <th className="px-6 py-3 text-sm font-medium">Start Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">End Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">Plan</th>
+                          <th className="px-6 py-3 text-sm font-medium">Subscription ID</th>
+                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                          <th className="px-6 py-3 text-sm font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {userData.subscriptions.map((subscription) => {
-                          const canCancel = subscription.status === "active";
+                        {userData.subscriptions
+                          .filter(subscription => subscription.status === "active")
+                          .map((subscription) => {
+                            const canCancel = subscription.status === "active";
 
-                          return (
+                            return (
+                              <tr key={subscription.subscription_id} className="border-b border-white/5 hover:bg-white/[0.02]">
+                                <td className="px-6 py-4 text-white">
+                                  {formatDate(subscription.start_date)}
+                                </td>
+                                <td className="px-6 py-4 text-white">
+                                  {formatDate(subscription.end_date)}
+                                </td>
+                                <td className="px-6 py-4 text-white">
+                                  {getSubscriptionTierName(subscription.subscription_tier_id)}
+                                </td>
+                                <td className="px-6 py-4 text-white">
+                                  <span className="px-2 py-1 text-[10px] bg-gray-700 text-gray-200 rounded">
+                                    {subscription.subscription_id}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  <span className="px-2 py-1 text-xs font-medium rounded-full bg-green-500/20 text-green-400">
+                                    {subscription.status}
+                                  </span>
+                                </td>
+                                <td className="px-6 py-4">
+                                  {canCancel && (
+                                    <button
+                                      className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+                                      onClick={() => {
+                                        setSubscriptionToCancel(subscription);
+                                        setShowCancelModal(true);
+                                        setCancelResult(null);
+                                        setShowPaymentStep(false);
+                                      }}
+                                      disabled={cancelingSubscription}
+                                    >
+                                      Cancel
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+
+              {/* Inactive Subscriptions */}
+              {userData.subscriptions && userData.subscriptions.filter(sub => sub.status !== "active").length > 0 && (
+                <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
+                  <div className="p-6 border-b border-white/10">
+                    <h2 className="text-xl font-semibold text-white flex items-center">
+                      <CardIcon className="mr-2 h-5 w-5" />
+                      Inactive Subscriptions
+                    </h2>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Your previous subscription plans
+                    </p>
+                  </div>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead>
+                        <tr className="text-left text-gray-400 border-b border-white/10">
+                          <th className="px-6 py-3 text-sm font-medium">Start Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">End Date</th>
+                          <th className="px-6 py-3 text-sm font-medium">Plan</th>
+                          <th className="px-6 py-3 text-sm font-medium">Subscription ID</th>
+                          <th className="px-6 py-3 text-sm font-medium">Status</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {userData.subscriptions
+                          .filter(subscription => subscription.status !== "active")
+                          .map((subscription) => (
                             <tr key={subscription.subscription_id} className="border-b border-white/5 hover:bg-white/[0.02]">
                               <td className="px-6 py-4 text-white">
                                 {formatDate(subscription.start_date)}
@@ -816,37 +962,16 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td className="px-6 py-4">
-                                <span
-                                  className={`px-2 py-1 text-xs font-medium rounded-full ${
-                                    subscription.status === "active"
-                                      ? "bg-green-500/20 text-green-400"
-                                      : subscription.status === "canceled"
-                                      ? "bg-red-500/20 text-red-400"
-                                      : "bg-amber-500/20 text-amber-400"
-                                  }`}
-                                >
+                                <span className={`px-2 py-1 text-xs font-medium rounded-full ${
+                                  subscription.status === "canceled"
+                                    ? "bg-red-500/20 text-red-400"
+                                    : "bg-amber-500/20 text-amber-400"
+                                }`}>
                                   {subscription.status}
                                 </span>
                               </td>
-                              <td className="px-6 py-4">
-                                {canCancel && (
-                                  <button
-                                    className="px-3 py-1 text-xs bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-                                    onClick={() => {
-                                      setSubscriptionToCancel(subscription);
-                                      setShowCancelModal(true);
-                                      setCancelResult(null);
-                                      setShowPaymentStep(false);
-                                    }}
-                                    disabled={cancelingSubscription}
-                                  >
-                                    Cancel
-                                  </button>
-                                )}
-                              </td>
                             </tr>
-                          );
-                        })}
+                          ))}
                       </tbody>
                     </table>
                   </div>
