@@ -17,7 +17,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
-import PayPalButton from "../components/PayPalButton";
+import PayPalCancellationButton from "../../components/PayPalCancellationButton";
 
 // Update the Project interface to include project-specific fields
 interface Project {
@@ -307,6 +307,21 @@ export default function Dashboard() {
     } catch (error) {
       console.error("Error in final cancellation:", error);
     }
+  };
+
+  // Handle successful payment
+  const handlePaymentSuccess = () => {
+    console.log("[Payment Success] Cancellation payment completed");
+    
+    // Close modal and refresh data after successful payment
+    setTimeout(() => {
+      setShowCancelModal(false);
+      setSubscriptionToCancel(null);
+      setCancelResult(null);
+      setShowPaymentStep(false);
+      fetchUserData();
+      fetchSubscriptions();
+    }, 2000);
   };
 
   // Format date for display
@@ -985,11 +1000,12 @@ export default function Dashboard() {
 
                 {/* PayPal Button for Cancellation Payment */}
                 <div className="mb-4">
-                  <PayPalButton
-                    selectedServices={[]}
+                  <PayPalCancellationButton
                     totalPrice={cancelResult?.payToCancelAmount || 0}
-                    isSubscription={false}
+                    subscriptionId={subscriptionToCancel.subscription_id}
+                    monthsToPay={cancelResult?.monthsToPay || 0}
                     clerkId={userId || ""}
+                    onPaymentSuccess={handlePaymentSuccess}
                   />
                 </div>
 
@@ -999,12 +1015,6 @@ export default function Dashboard() {
                     className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                   >
                     Back
-                  </button>
-                  <button
-                    onClick={handleFinalCancellation}
-                    className="px-4 py-2 bg-green-600 text-white hover:bg-green-700 rounded-lg transition-colors"
-                  >
-                    Complete Cancellation
                   </button>
                 </div>
               </>
