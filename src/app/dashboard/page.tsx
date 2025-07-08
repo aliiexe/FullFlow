@@ -104,6 +104,7 @@ export default function Dashboard() {
   const [cancelResult, setCancelResult] = useState<CancellationResult | null>(null);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
   const [showPaymentStep, setShowPaymentStep] = useState(false);
+  const [reactivatingSubscription, setReactivatingSubscription] = useState<string | null>(null);
   const router = useRouter();
 
   const { userId, isLoaded, isSignedIn } = useAuth();
@@ -492,6 +493,73 @@ export default function Dashboard() {
       fetchUserData();
       fetchSubscriptions();
     }, 2000);
+  };
+
+  // Handle subscription reactivation
+  const handleReactivateSubscription = async (subscriptionId: string) => {
+    if (!userData) {
+      console.log("[Reactivate] Missing user data");
+      return;
+    }
+    
+    console.log("[Reactivate] Starting reactivation for subscription:", subscriptionId);
+    setReactivatingSubscription(subscriptionId);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        throw new Error("API URL not configured");
+      }
+      
+      console.log("[Reactivate] Calling reactivate_sub API with:", {
+        clerk_id: userData.clerk_id,
+        sub_id: subscriptionId,
+        payment_method: "PayPal",
+        transaction_id: "REACTIVATION"
+      });
+      
+      const response = await fetch(`${apiUrl}/api/reactivate_sub`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          clerk_id: userData.clerk_id,
+          sub_id: subscriptionId,
+          payment_method: "PayPal",
+          transaction_id: "REACTIVATION"
+        }),
+      });
+      
+      console.log("[Reactivate] API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+        console.error("[Reactivate] API error:", errorData);
+        throw new Error(errorData.error || `Failed to reactivate subscription: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log("[Reactivate] Success:", result);
+      
+      // Refresh data to show updated subscription status
+      fetchUserData();
+      fetchSubscriptions();
+      
+      // Show success message (you could add a toast notification here)
+      alert("Subscription reactivated successfully!");
+      
+    } catch (error) {
+      console.error("[Reactivate] Error:", error);
+      alert(error instanceof Error ? error.message : "Failed to reactivate subscription");
+    } finally {
+      setReactivatingSubscription(null);
+    }
   };
 
   // Format date for display
@@ -1026,6 +1094,7 @@ export default function Dashboard() {
                           <th className="px-6 py-3 text-sm font-medium">Plan</th>
                           <th className="px-6 py-3 text-sm font-medium">Subscription ID</th>
                           <th className="px-6 py-3 text-sm font-medium">Status</th>
+                          <th className="px-6 py-3 text-sm font-medium">Actions</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -1055,6 +1124,24 @@ export default function Dashboard() {
                                 }`}>
                                   {subscription.status}
                                 </span>
+                              </td>
+                              <td className="px-6 py-4">
+                                {["canceled", "not_active"].includes(subscription.status) && (
+                                  <button
+                                    className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center"
+                                    onClick={() => handleReactivateSubscription(subscription.subscription_id)}
+                                    disabled={reactivatingSubscription === subscription.subscription_id}
+                                  >
+                                    {reactivatingSubscription === subscription.subscription_id ? (
+                                      <>
+                                        <Loader2 className="w-3 h-3 mr-1 animate-spin" />
+                                        Reactivating...
+                                      </>
+                                    ) : (
+                                      "Reactivate"
+                                    )}
+                                  </button>
+                                )}
                               </td>
                             </tr>
                           ))}
