@@ -4,7 +4,7 @@ export async function POST(request: NextRequest) {
     try {
         const paymentData = await request.json();
         console.log("Saving payment data:", paymentData);
-        
+
         // Extract payment details
         const {
             orderId,
@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
             clerkId,
             subscriptionId
         } = paymentData;
-        
+
         // Validate required fields
         if (!orderId || !amount || !customerEmail) {
             return NextResponse.json(
@@ -26,7 +26,7 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        
+
         // Validate clerk_id is present and not a placeholder
         if (!clerkId || clerkId === 'user' || clerkId === '') {
             console.error('🔍 PAYMENT HANDLER ERROR: Invalid or missing clerk_id:', clerkId);
@@ -35,11 +35,11 @@ export async function POST(request: NextRequest) {
                 { status: 400 }
             );
         }
-        
+
         // Determine which payment type to process
         if (isSubscription) {
             console.log('🔍 PAYMENT HANDLER: Processing subscription payment');
-            
+
             // Handle subscription payment
             if (!subscriptionId) {
                 console.error('🔍 PAYMENT HANDLER ERROR: Missing subscriptionId in payment data');
@@ -48,15 +48,28 @@ export async function POST(request: NextRequest) {
                     { status: 400 }
                 );
             }
-            
-            if (!subscriptionId) {
-                console.error('🔍 PAYMENT HANDLER ERROR: Missing subscriptionId in payment data');
-                return NextResponse.json(
-                    { error: 'Missing subscriptionId in payment data' },
-                    { status: 400 }
+
+            // Check if already subscribed
+            try {
+                const checkSubUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/user_subs?clerk_id=${clerkId}`;
+                const subRes = await fetch(checkSubUrl);
+                const subData = await subRes.json();
+                const existingSubscription = subData.data?.find(
+                    (sub: any) => sub.subscription_id === subscriptionId && sub.status === "active"
                 );
+                if (existingSubscription) {
+                    // Already subscribed, skip project creation and API call
+                    return NextResponse.json({
+                        success: true,
+                        is_already_subbed: true,
+                        message: "User is already subscribed. No new project created."
+                    });
+                }
+            } catch (err) {
+                console.error('🔍 PAYMENT HANDLER ERROR: Failed to check existing subscriptions:', err);
+                // Optionally, you can return an error or proceed depending on your business logic
             }
-            
+
             const subscriptionPaymentData = {
                 clerk_id: clerkId || '',
                 email: customerEmail,
@@ -67,12 +80,12 @@ export async function POST(request: NextRequest) {
                 transaction_id: captureId || orderId,
                 subscription_id: subscriptionId
             };
-            
+
             console.log('🔍 PAYMENT HANDLER: Subscription payment data:', subscriptionPaymentData);
-            
+
             const subscriptionApiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/payments/subscription`;
             console.log('🔍 PAYMENT HANDLER: Making API request to:', subscriptionApiUrl);
-            
+
             try {
                 console.log('🔍 PAYMENT HANDLER: Sending subscription payment data...');
                 const response = await fetch(subscriptionApiUrl, {
@@ -82,14 +95,14 @@ export async function POST(request: NextRequest) {
                     },
                     body: JSON.stringify(subscriptionPaymentData),
                 });
-                
+
                 console.log('🔍 PAYMENT HANDLER: API response status:', response.status);
                 console.log('🔍 PAYMENT HANDLER: API response status text:', response.statusText);
-                
+
                 // Log response headers
                 const responseHeaders = Object.fromEntries(response.headers.entries());
                 console.log('🔍 PAYMENT HANDLER: API response headers:', responseHeaders);
-                
+
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error('🔍 PAYMENT HANDLER ERROR: API error response:', errorData);
@@ -98,17 +111,17 @@ export async function POST(request: NextRequest) {
                         { status: 500 }
                     );
                 }
-                
+
                 const responseData = await response.json();
                 console.log('🔍 PAYMENT HANDLER SUCCESS: API response data:', responseData);
-                
+
                 return NextResponse.json({
                     success: true,
                     message: "Subscription payment saved successfully",
                     payment_id: captureId || orderId,
                     data: responseData
                 });
-                
+
             } catch (error) {
                 console.error('🔍 PAYMENT HANDLER ERROR: Failed to send subscription payment data:', error);
                 console.error('🔍 PAYMENT HANDLER ERROR: Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
@@ -117,10 +130,10 @@ export async function POST(request: NextRequest) {
                     { status: 500 }
                 );
             }
-            
+
         } else {
             console.log('🔍 PAYMENT HANDLER: Processing one-time payment for deliverables');
-            
+
             // Handle one-time payment for deliverables
             if (!selectedServices || selectedServices.length === 0) {
                 console.error('🔍 PAYMENT HANDLER ERROR: Missing selectedServices in payment data');
@@ -129,7 +142,7 @@ export async function POST(request: NextRequest) {
                     { status: 400 }
                 );
             }
-            
+
             let deliverableIds: string[];
             try {
                 console.log('🔍 PAYMENT HANDLER: Processing selectedServices:', selectedServices);
@@ -148,7 +161,7 @@ export async function POST(request: NextRequest) {
                     { status: 400 }
                 );
             }
-            
+
             const deliverablePaymentData = {
                 clerk_id: clerkId || '',
                 email: customerEmail,
@@ -158,12 +171,12 @@ export async function POST(request: NextRequest) {
                 transaction_id: captureId || orderId,
                 deliverable_ids: deliverableIds
             };
-            
+
             console.log('🔍 PAYMENT HANDLER: Deliverable payment data:', deliverablePaymentData);
-            
+
             const deliverableApiUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/payments/deliverables`;
             console.log('🔍 PAYMENT HANDLER: Making API request to:', deliverableApiUrl);
-            
+
             try {
                 console.log('🔍 PAYMENT HANDLER: Sending deliverable payment data...');
                 const response = await fetch(deliverableApiUrl, {
@@ -173,14 +186,14 @@ export async function POST(request: NextRequest) {
                     },
                     body: JSON.stringify(deliverablePaymentData),
                 });
-                
+
                 console.log('🔍 PAYMENT HANDLER: API response status:', response.status);
                 console.log('🔍 PAYMENT HANDLER: API response status text:', response.statusText);
-                
+
                 // Log response headers
                 const responseHeaders = Object.fromEntries(response.headers.entries());
                 console.log('🔍 PAYMENT HANDLER: API response headers:', responseHeaders);
-                
+
                 if (!response.ok) {
                     const errorData = await response.text();
                     console.error('🔍 PAYMENT HANDLER ERROR: API error response:', errorData);
@@ -189,17 +202,17 @@ export async function POST(request: NextRequest) {
                         { status: 500 }
                     );
                 }
-                
+
                 const responseData = await response.json();
                 console.log('🔍 PAYMENT HANDLER SUCCESS: API response data:', responseData);
-                
+
                 return NextResponse.json({
                     success: true,
                     message: "Deliverable payment saved successfully",
                     payment_id: captureId || orderId,
                     data: responseData
                 });
-                
+
             } catch (error) {
                 console.error('🔍 PAYMENT HANDLER ERROR: Failed to send deliverable payment data:', error);
                 console.error('🔍 PAYMENT HANDLER ERROR: Stack trace:', error instanceof Error ? error.stack : 'No stack trace');
@@ -209,7 +222,7 @@ export async function POST(request: NextRequest) {
                 );
             }
         }
-        
+
     } catch (error) {
         console.error("Error saving payment:", error);
         return NextResponse.json(
