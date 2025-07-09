@@ -171,6 +171,28 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
     }
 
+    // Early check: if already subscribed, skip project creation
+    if (isSubscription && subscriptionId && clerkId) {
+      try {
+        const checkSubUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/user_subs?clerk_id=${clerkId}`;
+        const subRes = await fetch(checkSubUrl);
+        const subData = await subRes.json();
+        const existingSubscription = subData.data?.find(
+          (sub: any) => sub.subscription_id === subscriptionId && sub.status === "active"
+        );
+        if (existingSubscription) {
+          return NextResponse.json({
+            success: true,
+            is_already_subbed: true,
+            message: "User is already subscribed. No new project created."
+          });
+        }
+      } catch (err) {
+        console.error('[DEBUG] Error checking existing subscriptions:', err);
+        // Optionally, you can return an error or proceed depending on your business logic
+      }
+    }
+
     // Check if PayPal credentials are configured
     if (!process.env.NEXT_PUBLIC_PAYPAL_CLIENT_ID || !process.env.PAYPAL_SECRET) {
       console.error("[DEBUG] PayPal credentials not configured");
