@@ -104,6 +104,7 @@ export default function Dashboard() {
   const [cancelResult, setCancelResult] = useState<CancellationResult | null>(null);
   const [subscriptions, setSubscriptions] = useState<UserSubscription[]>([]);
   const [showPaymentStep, setShowPaymentStep] = useState(false);
+  const [showConfirmCancellation, setShowConfirmCancellation] = useState(false);
   const [reactivatingSubscription, setReactivatingSubscription] = useState<string | null>(null);
   const router = useRouter();
 
@@ -360,20 +361,12 @@ export default function Dashboard() {
           monthsToPay: result.months_to_pay
         });
         setShowPaymentStep(true);
+        setShowConfirmCancellation(false);
       } else {
-        console.log("[Cancel Check] No payment required, proceeding with final cancellation");
-        // If no payment needed, proceed with final cancellation
-        await handleFinalCancellation();
-        
-        // Close modal and refresh data
-        setTimeout(() => {
-          setShowCancelModal(false);
-          setSubscriptionToCancel(null);
-          setCancelResult(null);
-          setShowPaymentStep(false);
-          fetchUserData();
-          fetchSubscriptions();
-        }, 2000);
+        console.log("[Cancel Check] No payment required, showing confirm cancellation button");
+        // If no payment needed, show confirm cancellation button
+        setShowConfirmCancellation(true);
+        setShowPaymentStep(false);
       }
     } catch (error) {
       console.error("[Cancel Check] Error checking cancellation:", error);
@@ -479,6 +472,82 @@ export default function Dashboard() {
     }
   };
 
+  // Handle direct cancellation when no payment is required
+  const handleDirectCancellation = async () => {
+    if (!userData || !subscriptionToCancel) {
+      console.log("[Direct Cancellation] Missing required data:", { userData: !!userData, subscriptionToCancel: !!subscriptionToCancel });
+      return;
+    }
+    
+    console.log("[Direct Cancellation] Starting direct cancellation for subscription:", subscriptionToCancel.subscription_id);
+    setCancelingSubscription(true);
+    
+    try {
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+      if (!apiUrl) {
+        throw new Error("API URL not configured");
+      }
+      
+      console.log("[Direct Cancellation] Calling inactivate_sub API with:", {
+        clerk_id: userData.clerk_id,
+        subscription_id: subscriptionToCancel.subscription_id,
+        months: null,
+        payment_method: null,
+        transaction_id: null
+      });
+      
+      const response = await fetch(`${apiUrl}/api/inactivate_sub`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Accept": "application/json"
+        },
+        body: JSON.stringify({
+          clerk_id: userData.clerk_id,
+          subscription_id: subscriptionToCancel.subscription_id,
+          months: null,
+          payment_method: null,
+          transaction_id: null
+        }),
+      });
+      
+      console.log("[Direct Cancellation] API response:", {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: "Failed to parse error response" }));
+        console.error("[Direct Cancellation] API error:", errorData);
+        throw new Error(errorData.error || `Failed to cancel subscription: ${response.status}`);
+      }
+      
+      const result = await response.json();
+      console.log("[Direct Cancellation] Success:", result);
+      
+      // Close modal and refresh data
+      setTimeout(() => {
+        setShowCancelModal(false);
+        setSubscriptionToCancel(null);
+        setCancelResult(null);
+        setShowPaymentStep(false);
+        setShowConfirmCancellation(false);
+        fetchUserData();
+        fetchSubscriptions();
+      }, 2000);
+      
+    } catch (error) {
+      console.error("[Direct Cancellation] Error:", error);
+      setCancelResult({
+        success: false,
+        cancelMessage: error instanceof Error ? error.message : "Failed to cancel subscription",
+      });
+    } finally {
+      setCancelingSubscription(false);
+    }
+  };
+
   // Handle successful payment
   const handlePaymentSuccess = (transactionId?: string) => {
     console.log("[Payment Success] Cancellation payment completed with transaction ID:", transactionId);
@@ -490,6 +559,7 @@ export default function Dashboard() {
       setSubscriptionToCancel(null);
       setCancelResult(null);
       setShowPaymentStep(false);
+      setShowConfirmCancellation(false);
       fetchUserData();
       fetchSubscriptions();
     }, 2000);
@@ -756,6 +826,7 @@ export default function Dashboard() {
                           setShowCancelModal(true);
                           setCancelResult(null);
                           setShowPaymentStep(false);
+                          setShowConfirmCancellation(false);
                         }}
                         className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                       >
@@ -1057,6 +1128,7 @@ export default function Dashboard() {
                                         setShowCancelModal(true);
                                         setCancelResult(null);
                                         setShowPaymentStep(false);
+                                        setShowConfirmCancellation(false);
                                       }}
                                       disabled={cancelingSubscription}
                                     >
@@ -1175,6 +1247,7 @@ export default function Dashboard() {
                   setSubscriptionToCancel(null);
                   setCancelResult(null);
                   setShowPaymentStep(false);
+                  setShowConfirmCancellation(false);
                 }}
                 className="text-gray-400 hover:text-white"
               >
@@ -1182,7 +1255,7 @@ export default function Dashboard() {
               </button>
             </div>
 
-            {!showPaymentStep ? (
+            {!showPaymentStep && !showConfirmCancellation ? (
               <>
                 <p className="text-gray-300 mb-4">
                   Are you sure you want to cancel your subscription? You'll lose
@@ -1248,6 +1321,7 @@ export default function Dashboard() {
                       setSubscriptionToCancel(null);
                       setCancelResult(null);
                       setShowPaymentStep(false);
+                      setShowConfirmCancellation(false);
                     }}
                     className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                     disabled={cancelingSubscription}
@@ -1263,6 +1337,58 @@ export default function Dashboard() {
                       <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     )}
                     Check Cancellation
+                  </button>
+                </div>
+              </>
+            ) : showConfirmCancellation ? (
+              <>
+                <div className="mb-6">
+                  <h4 className="text-lg font-semibold text-white mb-2">
+                    Confirm Cancellation
+                  </h4>
+                  <p className="text-gray-300 text-sm mb-4">
+                    No payment is required to cancel your subscription. Click the button below to confirm cancellation.
+                  </p>
+                  
+                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg mb-4">
+                    <div className="flex items-center justify-between">
+                      <span className="text-green-300 text-sm font-medium">
+                        Cancellation Fee:
+                      </span>
+                      <span className="text-green-300 text-lg font-bold">
+                        $0.00
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between mt-2">
+                      <span className="text-green-300 text-sm">
+                        Status:
+                      </span>
+                      <span className="text-green-300 text-sm">
+                        No Payment Required
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex justify-end space-x-3">
+                  <button
+                    onClick={() => {
+                      setShowConfirmCancellation(false);
+                      setCancelResult(null);
+                    }}
+                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
+                  >
+                    Back
+                  </button>
+                  <button
+                    onClick={handleDirectCancellation}
+                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg flex items-center transition-colors"
+                    disabled={cancelingSubscription}
+                  >
+                    {cancelingSubscription && (
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    )}
+                    Confirm Cancellation
                   </button>
                 </div>
               </>
@@ -1309,7 +1435,10 @@ export default function Dashboard() {
 
                 <div className="flex justify-end space-x-3">
                   <button
-                    onClick={() => setShowPaymentStep(false)}
+                    onClick={() => {
+                      setShowPaymentStep(false);
+                      setCancelResult(null);
+                    }}
                     className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
                   >
                     Back
