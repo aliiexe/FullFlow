@@ -158,6 +158,7 @@ async function sendEmailNotification(customerData: {
 
 /**
  * Captures a PayPal order and creates project resources after successful payment.
+ * For subscription payments, checks if user is already subscribed and skips project creation if so.
  */
 export async function POST(request: NextRequest) {
   console.log("[DEBUG] /api/payment/capture-paypal called");
@@ -169,28 +170,6 @@ export async function POST(request: NextRequest) {
     if (!orderID) {
       console.error("[DEBUG] Missing orderID");
       return NextResponse.json({ error: "Order ID is required" }, { status: 400 });
-    }
-
-    // Early check: if already subscribed, skip project creation
-    if (isSubscription && subscriptionId && clerkId) {
-      try {
-        const checkSubUrl = `${process.env.NEXT_PUBLIC_API_URL}/api/user_subs?clerk_id=${clerkId}`;
-        const subRes = await fetch(checkSubUrl);
-        const subData = await subRes.json();
-        const existingSubscription = subData.data?.find(
-          (sub: any) => sub.subscription_id === subscriptionId && sub.status === "active"
-        );
-        if (existingSubscription) {
-          return NextResponse.json({
-            success: true,
-            is_already_subbed: true,
-            message: "User is already subscribed. No new project created."
-          });
-        }
-      } catch (err) {
-        console.error('[DEBUG] Error checking existing subscriptions:', err);
-        // Optionally, you can return an error or proceed depending on your business logic
-      }
     }
 
     // Check if PayPal credentials are configured
@@ -286,11 +265,13 @@ export async function POST(request: NextRequest) {
         paymentDetails.customerName = `${orderDetails.payer.name.given_name || ''} ${orderDetails.payer.name.surname || ''}`.trim();
       }
 
-      // Extract clerk ID from custom_id (format: "clerkId_timestamp")
-      const clerkIdMatch = customId.match(/^([^_]+)_/);
-      const extractedClerkId = (clerkIdMatch && clerkIdMatch[1] !== 'guest' && clerkIdMatch[1] !== 'user') ? clerkIdMatch[1] : '';
+      // Extract clerk ID from custom_id (format: "user_xxx..._timestamp")
+      let extractedClerkId = '';
+      if (customId.startsWith('user_')) {
+        // Remove the trailing _digits (timestamp)
+        extractedClerkId = customId.replace(/_[0-9]+$/, '');
+      }
       paymentDetails.clerkId = extractedClerkId;
-
       console.log("[DEBUG] Custom ID from PayPal:", customId);
       console.log("[DEBUG] Extracted clerk ID from custom_id:", extractedClerkId);
 
@@ -303,7 +284,9 @@ export async function POST(request: NextRequest) {
 
     console.log("[DEBUG] SANDBOX payment details to save:", paymentDetails);
 
-    // Save payment data to database
+    // STEP 1: Save payment data to database (this will check subscription status internally)
+    let saveResult = null;
+    let isAlreadySubscribedFromSave = false;
     try {
       const saveResponse = await fetch(`${request.nextUrl.origin}/api/payment/save-payment`, {
         method: "POST",
@@ -315,8 +298,14 @@ export async function POST(request: NextRequest) {
       });
 
       if (saveResponse.ok) {
-        const saveResult = await saveResponse.json();
+        saveResult = await saveResponse.json();
         console.log("[DEBUG] SANDBOX payment saved successfully:", saveResult);
+
+        // Check if the save-payment route indicates user is already subscribed
+        if (saveResult.data?.is_already_subbed === true) {
+          console.log("[DEBUG] Save-payment route indicates user is already subscribed");
+          isAlreadySubscribedFromSave = true;
+        }
       } else {
         console.error("[DEBUG] Failed to save SANDBOX payment data");
       }
@@ -324,20 +313,28 @@ export async function POST(request: NextRequest) {
       console.error("[DEBUG] Error saving SANDBOX payment:", saveError);
     }
 
-    // When building deliverablePaymentData:
-    const deliverablePaymentData = {
-      clerk_id: paymentDetails.clerkId || '', // Make sure this is the real user ID!
-      email: paymentDetails.customerEmail,
-      fullname: paymentDetails.customerName || '',
-      payment_method: 'PayPal',
-      status: 'paid',
-      transaction_id: paymentDetails.captureId || paymentDetails.orderId,
-      deliverable_ids: paymentDetails.selectedServices
-    };
+    // STEP 2: If user is already subscribed (from save-payment check), return early without creating projects
+    if (isAlreadySubscribedFromSave) {
+      console.log("[DEBUG] User already subscribed, skipping project creation");
+      return NextResponse.json({
+        status: "ORDER_CAPTURED",
+        orderId: paymentDetails.orderId,
+        captureId: paymentDetails.captureId,
+        amount: paymentDetails.amount,
+        currency: paymentDetails.currency,
+        customerEmail: paymentDetails.customerEmail,
+        customerName: paymentDetails.customerName,
+        selectedServices: paymentDetails.selectedServices,
+        isSubscription: paymentDetails.isSubscription,
+        subscriptionId: paymentDetails.subscriptionId,
+        isAlreadySubscribed: true,
+        projectCreated: false,
+        slackCreated: false,
+        message: "Payment processed successfully. User is already subscribed to this plan."
+      });
+    }
 
-    console.log("[DEBUG] Deliverable payment data:", deliverablePaymentData);
-
-    // STEP 2: Create project resources after successful payment
+    // STEP 3: Create project resources only for new subscriptions or one-time payments
     console.log("[DEBUG] Payment successful, creating project resources...");
 
     // Get subscription details if applicable
@@ -393,7 +390,7 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // STEP 3: Send email notification to client
+    // STEP 4: Send email notification to client
     if (jiraResult && slackResult) {
       await sendEmailNotification({
         customerEmail: paymentDetails.customerEmail,
@@ -420,6 +417,7 @@ export async function POST(request: NextRequest) {
       selectedServices: paymentDetails.selectedServices,
       isSubscription: paymentDetails.isSubscription,
       subscriptionId: paymentDetails.subscriptionId,
+      isAlreadySubscribed: false,
       projectCreated: !!jiraResult,
       slackCreated: !!slackResult,
       projectKey: jiraResult?.projectKey,
