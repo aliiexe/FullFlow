@@ -46,8 +46,6 @@ async function createJiraProject(customerData: {
 }
 
 async function createSlackChannel(customerData: {
-  customerEmail: string;
-  customerName: string;
   sessionId: string;
 }) {
   try {
@@ -60,9 +58,7 @@ async function createSlackChannel(customerData: {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        name: channelName,
-        customerEmail: customerData.customerEmail,
-        customerName: customerData.customerName
+        name: channelName
       }),
     });
 
@@ -366,8 +362,6 @@ export async function POST(request: NextRequest) {
 
     // Create Slack channel
     const slackResult = await createSlackChannel({
-      customerEmail: paymentDetails.customerEmail,
-      customerName: paymentDetails.customerName,
       sessionId: orderID
     });
 
