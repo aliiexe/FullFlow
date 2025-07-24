@@ -8,6 +8,8 @@ import { Fragment } from 'react';
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useMemo } from 'react';
+import { io } from 'socket.io-client';
 
 interface Project {
   id: string;
@@ -55,6 +57,22 @@ export default function AdminDashboard() {
   const { userId, isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const sidebarRef = useRef<HTMLDivElement>(null);
+  const [insights, setInsights] = useState<any>(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
+  const [insightsError, setInsightsError] = useState<string | null>(null);
+
+  // WebSocket connection effect (must be before any early returns)
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+    socket.on('connect', () => {
+      console.log('WebSocket connected!');
+    });
+    // Optionally, listen for events here
+    // socket.on('project_updated', (data) => { ... });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
 
   // All useCallback hooks at the top
   const handleViewEdit = useCallback(async (projectId: string) => {
@@ -222,6 +240,22 @@ export default function AdminDashboard() {
   useEffect(() => {
     localStorage.setItem('adminSidebarOpen', sidebarOpen ? 'true' : 'false');
   }, [sidebarOpen]);
+
+  // Fetch insights when Insights tab is active
+  useEffect(() => {
+    if (activeTab === 'insights') {
+      setInsightsLoading(true);
+      setInsightsError(null);
+      fetch('/api/admin/insights')
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch insights');
+          return res.json();
+        })
+        .then(data => setInsights(data))
+        .catch(err => setInsightsError(err.message))
+        .finally(() => setInsightsLoading(false));
+    }
+  }, [activeTab]);
 
   // Compute dynamic status options based on steps
   const getStatusOptions = () => {
@@ -408,139 +442,232 @@ export default function AdminDashboard() {
           </div>
         </header>
         <main className="max-w-7xl mx-auto pt-8 px-4 sm:px-8 lg:px-12">
-          <div className="mb-8 mt-4">
-            <h2 className="text-xl font-semibold text-white mb-6 mt-4">Projects</h2>
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6 mb-8">
-              <div className="flex-1 flex flex-col gap-2">
-                <label className="text-sm text-gray-400 font-medium" htmlFor="status-filter">Status</label>
-                <div className="w-full sm:w-56">
-                  <Listbox value={filterStatus} onChange={setFilterStatus} as={Fragment}>
-                    <div className="relative">
-                      <Listbox.Button id="status-filter" className="w-full rounded bg-white/[0.04] text-white px-3 py-1.5 border border-white/10 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-base h-10">
-                        {filterStatusOptions.find(o => o.value === filterStatus)?.label}
-                        <ChevronsUpDown className="w-4 h-4 text-gray-400 ml-2" />
-                      </Listbox.Button>
-                      <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10">
-                        {filterStatusOptions.map(option => (
-                          <Listbox.Option
-                            key={option.value}
-                            value={option.value}
-                            className={({ active }) =>
-                              `cursor-pointer select-none px-4 py-2 ${
-                                active ? 'bg-indigo-600/20 text-indigo-300' : 'text-white'
-                              }`
-                            }
-                          >
-                            {({ selected }) => (
-                              <span className="flex items-center">
-                                {selected && <Check className="w-4 h-4 text-indigo-400 mr-2" />}
-                                {option.label}
-                              </span>
-                            )}
-                          </Listbox.Option>
-                        ))}
-                      </Listbox.Options>
-                    </div>
-                  </Listbox>
-                </div>
-              </div>
-              <div className="flex-1 flex flex-col gap-2">
-                <label className="text-sm text-gray-400 font-medium" htmlFor="project-search">Project Key</label>
-                <div className="flex w-full sm:w-56 items-center">
-                  <span className="bg-white/[0.08] text-white px-5 py-1.5 rounded-l-lg border border-white/10 border-r-0 font-mono text-base h-10 flex items-center">PRJ</span>
-                  <input
-                    id="project-search"
-                    type="text"
-                    className="flex-1 bg-white/[0.04] text-white px-3 py-1.5 rounded-r-lg border border-white/10 border-l-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-400 text-base font-mono h-10"
-                    placeholder="Type project key here"
-                    value={searchKey}
-                    onChange={e => {
-                      const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
-                      setSearchKey(val);
-                    }}
-                  />
-                </div>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-0 sm:px-2 md:px-0">
-              {loading ? (
-                <div className="col-span-full flex items-center justify-center h-32">
-                  <span className="text-gray-400">Loading projects...</span>
-                </div>
-              ) : error ? (
-                <div className="col-span-full flex items-center justify-center h-32">
-                  <span className="text-red-400">{error}</span>
-                </div>
-              ) : filteredProjects.length === 0 ? (
-                <div className="col-span-full flex items-center justify-center h-32">
-                  <span className="text-gray-400">No projects found.</span>
-                </div>
-              ) : (
-                filteredProjects.map((project) => (
-                  <div
-                    key={project.id}
-                    className="rounded-2xl border border-white/10 bg-white/[0.03] shadow-lg p-6 flex flex-col gap-4 relative"
-                  >
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="font-mono text-lg text-indigo-300">{project.projectkey}</span>
-                      <span className={`px-3 py-1 text-xs font-medium rounded-full ${
-                        project.status === "completed"
-                          ? "bg-green-500/20 text-green-400"
-                          : project.status === "in_progress"
-                          ? "bg-blue-500/20 text-blue-400"
-                          : "bg-amber-500/20 text-amber-400"
-                      }`}>{
-                        // Show the correct label for the status
-                        project.status === 'not_started' ? 'Not Started' :
-                        project.status === 'completed' ? 'Completed' :
-                        // If status is 'in_progress', show the current step name if available
-                        (project.steps && typeof project.current_step === 'number' && project.steps[project.current_step]?.name)
-                          ? project.steps[project.current_step].name
-                          : 'In Progress'
-                      }</span>
-                    </div>
-                    <div className="flex flex-col gap-1 mb-2">
-                      <div className="text-xs text-gray-400">Client Email</div>
-                      <div className="text-white text-sm break-all">{getClientEmail(project)}</div>
-                    </div>
-                    <div className="flex gap-2 mb-2">
-                      {project.jiraurl && (
-                        <a
-                          href={project.jiraurl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors text-sm gap-2"
-                        >
-                          <BarChart2 className="w-4 h-4" /> Jira
-                        </a>
-                      )}
-                      {project.slackurl && (
-                        <a
-                          href={project.slackurl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors text-sm gap-2"
-                        >
-                          <BarChart2 className="w-4 h-4" /> Slack
-                        </a>
-                      )}
-                    </div>
-                    <button
-                      className="mt-auto px-4 py-2 bg-indigo-600/80 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
-                      onClick={() => handleViewEdit(project.id)}
-                    >
-                      View / Edit
-                    </button>
+          {/* Only render the active tab's content */}
+          {activeTab === "projects" && (
+            <div className="mb-8 mt-4">
+              <h2 className="text-xl font-semibold text-white mb-6 mt-4">Projects</h2>
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:gap-6 mb-8">
+                <div className="flex-1 flex flex-col gap-2">
+                  <label className="text-sm text-gray-400 font-medium" htmlFor="status-filter">Status</label>
+                  <div className="w-full sm:w-56">
+                    <Listbox value={filterStatus} onChange={setFilterStatus} as={Fragment}>
+                      <div className="relative">
+                        <Listbox.Button id="status-filter" className="w-full rounded bg-white/[0.04] text-white px-3 py-1.5 border border-white/10 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-base h-10">
+                          {filterStatusOptions.find(o => o.value === filterStatus)?.label}
+                          <ChevronsUpDown className="w-4 h-4 text-gray-400 ml-2" />
+                        </Listbox.Button>
+                        <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10">
+                          {filterStatusOptions.map(option => (
+                            <Listbox.Option
+                              key={option.value}
+                              value={option.value}
+                              className={({ active }) =>
+                                `cursor-pointer select-none px-4 py-2 ${
+                                  active ? 'bg-indigo-600/20 text-indigo-300' : 'text-white'
+                                }`
+                              }
+                            >
+                              {({ selected }) => (
+                                <span className="flex items-center">
+                                  {selected && <Check className="w-4 h-4 text-indigo-400 mr-2" />}
+                                  {option.label}
+                                </span>
+                              )}
+                            </Listbox.Option>
+                          ))}
+                        </Listbox.Options>
+                      </div>
+                    </Listbox>
                   </div>
-                ))
-              )}
+                </div>
+                <div className="flex-1 flex flex-col gap-2">
+                  <label className="text-sm text-gray-400 font-medium" htmlFor="project-search">Project Key</label>
+                  <div className="flex w-full sm:w-56 items-center">
+                    <span className="bg-white/[0.08] text-white px-5 py-1.5 rounded-l-lg border border-white/10 border-r-0 font-mono text-base h-10 flex items-center">PRJ</span>
+                    <input
+                      id="project-search"
+                      type="text"
+                      className="flex-1 bg-white/[0.04] text-white px-3 py-1.5 rounded-r-lg border border-white/10 border-l-0 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-400 text-base font-mono h-10"
+                      placeholder="Type project key here"
+                      value={searchKey}
+                      onChange={e => {
+                        const val = e.target.value.replace(/[^a-zA-Z0-9]/g, '').slice(0, 6);
+                        setSearchKey(val);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-0 sm:px-2 md:px-0">
+                {loading ? (
+                  <div className="col-span-full flex items-center justify-center h-32">
+                    <span className="text-gray-400">Loading projects...</span>
+                  </div>
+                ) : error ? (
+                  <div className="col-span-full flex items-center justify-center h-32">
+                    <span className="text-red-400">{error}</span>
+                  </div>
+                ) : filteredProjects.length === 0 ? (
+                  <div className="col-span-full flex items-center justify-center h-32">
+                    <span className="text-gray-400">No projects found.</span>
+                  </div>
+                ) : (
+                  filteredProjects.map((project) => (
+                    <div
+                      key={project.id}
+                      className="rounded-2xl border border-white/10 bg-white/[0.03] shadow-lg p-6 flex flex-col gap-4 relative"
+                    >
+                      <div className="flex justify-between items-center mb-2">
+                        <span className="font-mono text-lg text-indigo-300">{project.projectkey}</span>
+                        <span className={`px-3 py-1 text-xs font-medium rounded-full ${
+                          project.status === "completed"
+                            ? "bg-green-500/20 text-green-400"
+                            : project.status === "in_progress"
+                            ? "bg-blue-500/20 text-blue-400"
+                            : "bg-amber-500/20 text-amber-400"
+                        }`}>
+                          {
+                            project.status === 'not_started' ? 'Not Started' :
+                            project.status === 'completed' ? 'Completed' :
+                            (project.steps && typeof project.current_step === 'number' && project.steps[project.current_step]?.name)
+                              ? project.steps[project.current_step].name
+                              : 'In Progress'
+                          }
+                        </span>
+                      </div>
+                      <div className="flex flex-col gap-1 mb-2">
+                        <div className="text-xs text-gray-400">Client Email</div>
+                        <div className="text-white text-sm break-all">{getClientEmail(project)}</div>
+                      </div>
+                      <div className="flex gap-2 mb-2">
+                        {project.jiraurl && (
+                          <a
+                            href={project.jiraurl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors text-sm gap-2"
+                          >
+                            <BarChart2 className="w-4 h-4" /> Jira
+                          </a>
+                        )}
+                        {project.slackurl && (
+                          <a
+                            href={project.slackurl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center px-4 py-2 bg-indigo-600/20 text-indigo-400 hover:bg-indigo-600/30 rounded-lg transition-colors text-sm gap-2"
+                          >
+                            <BarChart2 className="w-4 h-4" /> Slack
+                          </a>
+                        )}
+                      </div>
+                      <button
+                        className="mt-auto px-4 py-2 bg-indigo-600/80 text-white rounded-lg hover:bg-indigo-700 transition-colors text-sm font-medium"
+                        onClick={() => handleViewEdit(project.id)}
+                      >
+                        View / Edit
+                      </button>
+                    </div>
+                  ))
+                )}
+              </div>
             </div>
-          </div>
+          )}
           {activeTab === "insights" && (
-            <div className="mb-8">
+            <div className="mb-8 p-4">
               <h2 className="text-xl font-semibold text-white mb-4">Insights</h2>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-lg flex items-center justify-center min-h-[200px]">
-                <span className="text-gray-400">Insights coming soon...</span>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-lg flex flex-col gap-8 min-h-[200px]">
+                {insightsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-gray-400">Loading insights...</span>
+                  </div>
+                ) : insightsError ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-red-400">{insightsError}</span>
+                  </div>
+                ) : insights ? (
+                  <>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                      <InsightCard label="Total Purchases" value={insights.totalPurchases} icon={<DollarSign className="w-6 h-6 text-indigo-400" />} />
+                      <InsightCard label="Total Revenue" value={`$${Number(insights.totalRevenue).toLocaleString()}`} icon={<DollarSign className="w-6 h-6 text-green-400" />} />
+                      <InsightCard label="Total Projects" value={insights.totalProjects} icon={<Layers className="w-6 h-6 text-blue-400" />} />
+                      <InsightCard label="Active Clients" value={insights.totalActiveClients} icon={<Users className="w-6 h-6 text-amber-400" />} />
+                      {/* <InsightCard label="New Projects This Month" value={insights.newProjectsThisMonth} icon={<Plus className="w-6 h-6 text-indigo-400" />} /> */}
+                      {/* <InsightCard label="Active Subscriptions" value={insights.activeSubscriptions} icon={<CheckCircle className="w-6 h-6 text-green-400" />} /> */}
+                      {/* <InsightCard label="Most Popular Status" value={insights.mostPopularStatus ? insights.mostPopularStatus.replace('_', ' ') : 'N/A'} icon={<BarChart2 className="w-6 h-6 text-blue-400" />} /> */}
+                      {/* <InsightCard label="Avg. Completion Time (days)" value={insights.avgCompletionDays ? insights.avgCompletionDays.toFixed(1) : 'N/A'} icon={<Loader2 className="w-6 h-6 text-indigo-400" />} /> */}
+                    </div>
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Projects by Status</h3>
+                        <ul className="space-y-2">
+                          {Object.entries(insights.statusCounts || {}).map(([status, count]) => (
+                            <li key={status} className="flex justify-between items-center bg-white/[0.04] rounded px-4 py-2">
+                              <span className="capitalize text-white">{status.replace('_', ' ')}</span>
+                              <span className="font-mono text-indigo-300">{String(count)}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Top Clients (by Projects)</h3>
+                        <ul className="space-y-2">
+                          {insights.topClients && insights.topClients.length > 0 ? insights.topClients.map((client: any) => (
+                            <li key={client.userId} className="flex justify-between items-center bg-white/[0.04] rounded px-4 py-2">
+                              <span className="text-white">{client.email}</span>
+                              <span className="font-mono text-indigo-300">{client.projectCount} projects</span>
+                            </li>
+                          )) : <li className="text-gray-400">No data</li>}
+                        </ul>
+                      </div>
+                    </div>
+                    <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-8">
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Top Revenue Clients</h3>
+                        <ul className="space-y-2">
+                          {insights.topRevenueClients && insights.topRevenueClients.length > 0 ? insights.topRevenueClients.map((client: any) => (
+                            <li key={client.userId} className="flex justify-between items-center bg-white/[0.04] rounded px-4 py-2">
+                              <span className="text-white">{client.email}</span>
+                              <span className="font-mono text-green-300">${Number(client.revenue).toLocaleString()}</span>
+                            </li>
+                          )) : <li className="text-gray-400">No data</li>}
+                        </ul>
+                      </div>
+                      <div>
+                        <h3 className="text-lg font-semibold text-white mb-2">Clients With No Active Projects</h3>
+                        <div className="flex items-center gap-2 bg-white/[0.04] rounded px-4 py-2">
+                          <span className="font-mono text-indigo-300 text-lg">{insights.numClientsWithNoActiveProjects}</span>
+                          <span className="text-white">clients</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold text-white mb-2">Monthly Revenue Trend (Last 6 Months)</h3>
+                      <ul className="flex flex-wrap gap-4">
+                        {insights.monthlyRevenue && Object.entries(insights.monthlyRevenue).map(([month, revenue]) => (
+                          <li key={month} className="flex flex-col items-center bg-white/[0.04] rounded px-4 py-2 min-w-[100px]">
+                            <span className="font-mono text-indigo-300">{month}</span>
+                            <span className="font-mono text-green-300">${Number(revenue).toLocaleString()}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                    <div className="mt-8">
+                      <h3 className="text-lg font-semibold text-white mb-2">Recent Purchases</h3>
+                      <ul className="space-y-2">
+                        {insights.recentPurchases && insights.recentPurchases.length > 0 ? insights.recentPurchases.map((purchase: any, idx: number) => (
+                          <li key={purchase.id || idx} className="flex flex-col sm:flex-row sm:justify-between sm:items-center bg-white/[0.04] rounded px-4 py-2">
+                            <span className="text-white">{purchase.email || purchase.user_email || 'Unknown'}</span>
+                            <span className="font-mono text-indigo-300">${Number(purchase.amount).toLocaleString()}</span>
+                            <span className="text-xs text-gray-400">{purchase.payment_date ? new Date(purchase.payment_date).toLocaleString() : ''}</span>
+                          </li>
+                        )) : <li className="text-gray-400">No recent purchases</li>}
+                      </ul>
+                    </div>
+                  </>
+                ) : (
+                  <span className="text-gray-400">No insights data available.</span>
+                )}
               </div>
             </div>
           )}
@@ -552,8 +679,7 @@ export default function AdminDashboard() {
               </div>
             </div>
           )}
-
-          {/* Modal for project detail/edit */}
+          {/* Modal for project detail/edit (remains outside tab switch) */}
           {modalOpen && (
             <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
               <div className="bg-[#181824] rounded-xl shadow-2xl max-w-lg w-full p-8 relative border border-white/10 max-h-[80vh] overflow-y-auto">
@@ -675,6 +801,16 @@ export default function AdminDashboard() {
           )}
         </main>
       </div>
+    </div>
+  );
+}
+
+function InsightCard({ label, value, icon }: { label: string; value: any; icon: React.ReactNode }) {
+  return (
+    <div className="flex flex-col items-center justify-center bg-white/[0.06] rounded-xl p-6 shadow border border-white/10">
+      <div className="mb-2">{icon}</div>
+      <div className="text-2xl font-bold text-white mb-1">{value}</div>
+      <div className="text-sm text-gray-400 font-medium">{label}</div>
     </div>
   );
 } 
