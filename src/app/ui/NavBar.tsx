@@ -10,6 +10,8 @@ import {
   SignInButton,
   SignUpButton,
 } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
+import { useRouter } from "next/navigation";
 
 const AnimatedText = ({ text }: { text: string }) => {
   return (
@@ -34,6 +36,9 @@ const NavBar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [windowWidth, setWindowWidth] = useState(0);
   const [activeSection, setActiveSection] = useState("");
+  const [role, setRole] = useState<string | undefined>(undefined);
+  const { userId, isLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
 
   useEffect(() => {
     setMounted(true);
@@ -85,6 +90,20 @@ const NavBar = () => {
       window.removeEventListener("scroll", handleScroll);
     };
   }, []);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn || !userId) return;
+    const fetchRole = async () => {
+      try {
+        const apiUrl = process.env.NEXT_PUBLIC_API_URL || "https://api.example.com";
+        const response = await fetch(`${apiUrl}/api/users?clerk_id=${userId}`);
+        if (!response.ok) return;
+        const result = await response.json();
+        setRole(result.data?.role);
+      } catch {}
+    };
+    fetchRole();
+  }, [isLoaded, isSignedIn, userId]);
 
   const isMobile = windowWidth <= 768;
 
@@ -265,7 +284,7 @@ const NavBar = () => {
             {/* Get Started / Dashboard button */}
             {!isMobile ? (
               <SignedIn>
-                <Link href="/dashboard">
+                <Link href={role === 'admin' ? '/admin' : '/dashboard'}>
                   <motion.button
                     className="border border-white/30 rounded-lg bg-white/10 text-white py-2 px-5 text-base font-medium cursor-pointer flex items-center gap-2"
                     whileHover={{
@@ -397,7 +416,7 @@ const NavBar = () => {
                   <div className="flex items-center justify-center my-4">
                     <UserButton afterSignOutUrl="/" />
                   </div>
-                  <Link href="/dashboard">
+                  <Link href={role === 'admin' ? '/admin' : '/dashboard'}>
                     <motion.button
                       variants={itemVariants}
                       className="border border-white/30 rounded-lg bg-white/10 text-white py-3 px-6 text-base font-medium cursor-pointer flex items-center justify-center gap-3 my-2 mx-auto w-4/5"
