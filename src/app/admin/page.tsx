@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo } from 'react';
 import { io } from 'socket.io-client';
+import { UserButton } from '@clerk/nextjs';
 
 interface Project {
   id: string;
@@ -433,12 +434,26 @@ export default function AdminDashboard() {
             );
           })}
         </nav>
+        {/* Clerk User Profile at the bottom */}
+        <div className="mt-auto px-4 py-6 border-t border-white/10 flex flex-col items-center">
+          <UserButton afterSignOutUrl="/" />
+          {sidebarOpen && (
+            <span className="mt-2 text-xs text-gray-400 text-center">Profile & Logout</span>
+          )}
+        </div>
       </aside>
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarWidth}`}>
-        <header className="border-b border-white/10 backdrop-blur-md bg-black/20">
-          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center">
+        <header className="border-b border-white/10 backdrop-blur-md bg-black/20 flex items-center justify-between">
+          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center w-full">
             <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+            {/* Back to Home link */}
+            <Link
+              href="/"
+              className="text-indigo-400 hover:text-indigo-300 transition-colors text-sm font-medium border border-indigo-400 rounded-lg px-4 py-2 ml-4"
+            >
+              Back to Home
+            </Link>
           </div>
         </header>
         <main className="max-w-7xl mx-auto pt-8 px-4 sm:px-8 lg:px-12">
@@ -540,7 +555,7 @@ export default function AdminDashboard() {
                         <div className="text-white text-sm break-all">{getClientEmail(project)}</div>
                       </div>
                       <div className="flex gap-2 mb-2">
-                        {project.jiraurl && (
+                        {/* {project.jiraurl && (
                           <a
                             href={project.jiraurl}
                             target="_blank"
@@ -549,7 +564,7 @@ export default function AdminDashboard() {
                           >
                             <BarChart2 className="w-4 h-4" /> Jira
                           </a>
-                        )}
+                        )} */}
                         {project.slackurl && (
                           <a
                             href={project.slackurl}
