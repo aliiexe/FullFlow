@@ -22,6 +22,7 @@ import { io } from 'socket.io-client';
 
 // Update the Project interface to include project-specific fields
 interface Project {
+  id: string; // <-- Add this line
   projectkey: string;
   jiraurl: string;
   slackurl: string;
@@ -232,6 +233,7 @@ export default function Dashboard() {
   useEffect(() => {
     const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
     socket.on('project_updated', (updatedProject) => {
+      console.log('Received project_updated event:', updatedProject);
       setUserData(prev => {
         if (!prev) return prev;
         return {
