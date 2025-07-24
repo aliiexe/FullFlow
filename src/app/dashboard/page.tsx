@@ -18,6 +18,7 @@ import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import PayPalCancellationButton from "../../components/PayPalCancellationButton";
+import { io } from 'socket.io-client';
 
 // Update the Project interface to include project-specific fields
 interface Project {
@@ -26,6 +27,8 @@ interface Project {
   slackurl: string;
   description?: string; // Add description field to each project
   status?: string; // Add status field to each project
+  steps?: any[]; // Add steps field for stepper
+  current_step?: number; // Add current_step field for stepper
 }
 
 interface UserPayment {
@@ -35,6 +38,7 @@ interface UserPayment {
   payment_type: string;
   payment_status?: string; // legacy or fallback
   status?: string; // new field for status
+  role?: string; // Add role field
   selected_deliverable_name: string | null;
   subscription_tier_name: string | null;
   subscription_id?: string;
@@ -48,6 +52,7 @@ interface UserData {
   user_email: string;
   clerk_id: string;
   projects: Project[];
+  role: string;
   project_description?: string;
   project_status?: string;
   renewal_date?: string;
@@ -121,6 +126,16 @@ export default function Dashboard() {
       router.push("/sign-in?redirect=/dashboard");
     }
   }, [isLoaded, isSignedIn, router]);
+
+  useEffect(() => {
+    if (userData && userData.role) {
+      if (userData.role === 'admin') {
+        router.replace('/admin');
+      } else if (userData.role !== 'client') {
+        router.replace('/');
+      }
+    }
+  }, [userData, router]);
 
   // Fetch user data when authenticated
   const fetchUserData = useCallback(async () => {
@@ -212,6 +227,41 @@ export default function Dashboard() {
       fetchSubscriptions();
     }
   }, [fetchUserData, fetchSubscriptions, isLoaded, isSignedIn, userId]);
+
+  // Real-time updates: listen for project_updated events
+  useEffect(() => {
+    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
+    socket.on('project_updated', (updatedProject) => {
+      setUserData(prev => {
+        if (!prev) return prev;
+        return {
+          ...prev,
+          projects: prev.projects.map(p =>
+            p.projectkey === updatedProject.projectkey ? updatedProject : p
+          ),
+        };
+      });
+    });
+    return () => {
+      socket.disconnect();
+    };
+  }, []);
+
+  if (userData && userData.role && userData.role !== 'client') {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center p-6 bg-[#0c0c14]">
+        <AlertCircle className="w-16 h-16 text-red-500 mb-4" />
+        <h1 className="text-2xl font-bold text-white mb-2">Forbidden</h1>
+        <p className="text-gray-300 mb-8">You do not have access to this page.</p>
+        <Link
+          href="/"
+          className="px-6 py-3 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+        >
+          Return to Home
+        </Link>
+      </div>
+    );
+  }
 
   // Handle subscription cancellation check
   const handleCheckCancellation = async () => {
@@ -760,7 +810,7 @@ export default function Dashboard() {
             initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3 }}
-            className="space-y-6"
+            className="space-y-6 m-6"
           >
             {/* Account Information Card */}
             <div className="backdrop-blur-md rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden shadow-lg">
@@ -852,6 +902,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
+              className="m-6"
             >
               {/* Project Selection Buttons - replacing dropdown */}
               {userData.projects.length > 1 && (
@@ -931,7 +982,50 @@ export default function Dashboard() {
                         </div>
                       </div>
                     )}
-
+                    {Array.isArray(selectedProject?.steps) && selectedProject.steps.length > 0 && (
+                      <div className="py-8 px-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <h3 className="text-lg font-semibold text-white">Project Progress</h3>
+                          <span className="text-xs text-gray-400">
+                            Step {(typeof selectedProject?.current_step === 'number' ? selectedProject.current_step + 1 : 1)} of {selectedProject.steps.length}
+                          </span>
+                        </div>
+                        <div className="relative w-full" style={{ minHeight: 100 }}>
+                          {/* <div className="absolute left-0 right-0 top-1/2 h-[2px] bg-white/20 z-0" style={{ transform: 'translateY(-50%)' }} /> */}
+                          <div className="relative z-20 flex w-full gap-4 flex-wrap md:flex-nowrap justify-between items-start overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 scrollbar-track-transparent pb-2">
+                            {selectedProject.steps.map((step, idx) => {
+                              const isCompleted = step.completed || idx < (selectedProject.current_step ?? 0);
+                              const isCurrent   = idx === selectedProject.current_step;
+                              return (
+                                <div key={idx} className="flex-1 min-w-[90px] flex flex-col items-center">
+                                  <div className="flex items-center justify-center" style={{ height: 48 }}>
+                                    <div
+                                      className={`w-12 h-12 rounded-full flex items-center justify-center border-2 transition-colors duration-300
+                                        ${isCompleted
+                                          ? 'border-cyan-400 bg-cyan-400/10 text-cyan-300'
+                                          : isCurrent
+                                          ? 'border-indigo-400 bg-indigo-500 text-white'
+                                          : 'border-white/30 bg-white/10 text-white/70'
+                                        }`}
+                                    >
+                                      {isCompleted
+                                        ? <Check className="w-6 h-6" />
+                                        : <span className="font-bold text-base">{idx + 1}</span>
+                                      }
+                                    </div>
+                                  </div>
+                                  <span className={`mt-2 text-xs text-center font-medium
+                                    ${isCompleted ? 'text-cyan-300' : isCurrent ? 'text-indigo-300' : 'text-white/90'}
+                                  `}>
+                                    {step.name.charAt(0).toUpperCase() + step.name.slice(1)}
+                                  </span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                     <div className="pt-6 border-t border-white/10">
                       <h3 className="text-sm font-medium text-gray-400 mb-4">
                         Project Resources
@@ -978,7 +1072,7 @@ export default function Dashboard() {
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.3 }}
-              className="space-y-6"
+              className="space-y-6 m-6"
             >
               {/* Separate Deliverables and Subscriptions */}
               {/* Deliverables Section */}
@@ -1198,7 +1292,7 @@ export default function Dashboard() {
                                 </span>
                               </td>
                               <td className="px-6 py-4">
-                                {["canceled", "not_active"].includes(subscription.status) && (
+                                {['canceled', 'not_active'].includes(subscription.status) && (
                                   <button
                                     className="px-3 py-1 text-xs bg-green-600 text-white rounded hover:bg-green-700 transition-colors flex items-center"
                                     onClick={() => handleReactivateSubscription(subscription.subscription_id)}
@@ -1225,230 +1319,6 @@ export default function Dashboard() {
             </motion.div>
           )}
       </main>
-
-      {/* Subscription Cancellation Modal */}
-      {showCancelModal && subscriptionToCancel && (
-        <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50 p-4">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="max-w-md w-full bg-[#0c0c14] border border-white/10 rounded-xl p-6"
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div className="flex items-center">
-                <AlertCircle className="h-5 w-5 text-amber-400 mr-2" />
-                <h3 className="text-xl font-bold text-white">
-                  Cancel Subscription
-                </h3>
-              </div>
-              <button
-                onClick={() => {
-                  setShowCancelModal(false);
-                  setSubscriptionToCancel(null);
-                  setCancelResult(null);
-                  setShowPaymentStep(false);
-                  setShowConfirmCancellation(false);
-                }}
-                className="text-gray-400 hover:text-white"
-              >
-                <X className="h-5 w-5" />
-              </button>
-            </div>
-
-            {!showPaymentStep && !showConfirmCancellation ? (
-              <>
-                <p className="text-gray-300 mb-4">
-                  Are you sure you want to cancel your subscription? You'll lose
-                  access to your Premium features at the end of your current billing
-                  period.
-                </p>
-
-                <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="text-blue-300 text-sm font-medium">
-                      Subscription ID
-                    </span>
-                    <span className="text-blue-300 text-sm">
-                      {subscriptionToCancel.subscription_id}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-blue-300 text-sm">Plan</span>
-                    <span className="text-blue-300 text-sm">
-                      {getSubscriptionTierName(subscriptionToCancel.subscription_tier_id)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between mt-2">
-                    <span className="text-blue-300 text-sm">Valid Until</span>
-                    <span className="text-blue-300 text-sm">
-                      {formatDate(subscriptionToCancel.end_date)}
-                    </span>
-                  </div>
-                </div>
-
-                {/* Show cancel result message from API */}
-                {cancelResult && (
-                  <div className={`p-4 rounded mb-4 ${
-                    cancelResult.success 
-                      ? "bg-green-500/10 border border-green-500/20 text-green-400"
-                      : "bg-red-500/10 border border-red-500/20 text-red-400"
-                  }`}>
-                    <p>{cancelResult.cancelMessage}</p>
-                    {cancelResult.payToCancelAmount && cancelResult.payToCancelAmount > 0 && (
-                      <p className="font-bold mt-2">
-                        Amount to pay: ${cancelResult.payToCancelAmount}
-                      </p>
-                    )}
-                    {cancelResult.monthsToPay && cancelResult.monthsToPay > 0 && (
-                      <p className="text-sm mt-1">
-                        Months to pay: {cancelResult.monthsToPay}
-                      </p>
-                    )}
-                  </div>
-                )}
-
-                <div className="p-4 bg-amber-500/10 border border-amber-500/20 rounded-lg mb-6">
-                  <p className="text-amber-300 text-sm">
-                    Your subscription will remain active until {formatDate(subscriptionToCancel.end_date)}.
-                    You can reactivate your subscription anytime before it expires.
-                  </p>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowCancelModal(false);
-                      setSubscriptionToCancel(null);
-                      setCancelResult(null);
-                      setShowPaymentStep(false);
-                      setShowConfirmCancellation(false);
-                    }}
-                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
-                    disabled={cancelingSubscription}
-                  >
-                    Keep Subscription
-                  </button>
-                  <button
-                    onClick={handleCheckCancellation}
-                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg flex items-center transition-colors"
-                    disabled={cancelingSubscription}
-                  >
-                    {cancelingSubscription && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Check Cancellation
-                  </button>
-                </div>
-              </>
-            ) : showConfirmCancellation ? (
-              <>
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-white mb-2">
-                    Confirm Cancellation
-                  </h4>
-                  <p className="text-gray-300 text-sm mb-4">
-                    No payment is required to cancel your subscription. Click the button below to confirm cancellation.
-                  </p>
-                  
-                  <div className="p-4 bg-green-500/10 border border-green-500/20 rounded-lg mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-green-300 text-sm font-medium">
-                        Cancellation Fee:
-                      </span>
-                      <span className="text-green-300 text-lg font-bold">
-                        $0.00
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-green-300 text-sm">
-                        Status:
-                      </span>
-                      <span className="text-green-300 text-sm">
-                        No Payment Required
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowConfirmCancellation(false);
-                      setCancelResult(null);
-                    }}
-                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
-                  >
-                    Back
-                  </button>
-                  <button
-                    onClick={handleDirectCancellation}
-                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 rounded-lg flex items-center transition-colors"
-                    disabled={cancelingSubscription}
-                  >
-                    {cancelingSubscription && (
-                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    )}
-                    Confirm Cancellation
-                  </button>
-                </div>
-              </>
-            ) : (
-              <>
-                <div className="mb-6">
-                  <h4 className="text-lg font-semibold text-white mb-2">
-                    Payment Required for Cancellation
-                  </h4>
-                  <p className="text-gray-300 text-sm mb-4">
-                    To cancel your subscription, you need to pay for the remaining {cancelResult?.monthsToPay} months.
-                  </p>
-                  
-                  <div className="p-4 bg-blue-500/10 border border-blue-500/20 rounded-lg mb-4">
-                    <div className="flex items-center justify-between">
-                      <span className="text-blue-300 text-sm font-medium">
-                        Amount Due:
-                      </span>
-                      <span className="text-blue-300 text-lg font-bold">
-                        ${cancelResult?.payToCancelAmount}
-                      </span>
-                    </div>
-                    <div className="flex items-center justify-between mt-2">
-                      <span className="text-blue-300 text-sm">
-                        Months to Pay:
-                      </span>
-                      <span className="text-blue-300 text-sm">
-                        {cancelResult?.monthsToPay}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* PayPal Button for Cancellation Payment */}
-                <div className="mb-4">
-                  <PayPalCancellationButton
-                    totalPrice={cancelResult?.payToCancelAmount || 0}
-                    subscriptionId={subscriptionToCancel.subscription_id}
-                    monthsToPay={cancelResult?.monthsToPay || 0}
-                    clerkId={userId || ""}
-                    onPaymentSuccess={handlePaymentSuccess}
-                  />
-                </div>
-
-                <div className="flex justify-end space-x-3">
-                  <button
-                    onClick={() => {
-                      setShowPaymentStep(false);
-                      setCancelResult(null);
-                    }}
-                    className="px-4 py-2 border border-white/20 text-white hover:bg-white/[0.03] rounded-lg transition-colors"
-                  >
-                    Back
-                  </button>
-                </div>
-              </>
-            )}
-          </motion.div>
-        </div>
-      )}
     </div>
   );
 }
