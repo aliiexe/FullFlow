@@ -118,7 +118,7 @@ const integrationSteps = [
   {
     id: 'payment',
     title: 'Payment Processing',
-    description: 'Secure payment collection through Stripe',
+    description: 'Secure payment collection through PayPal',
     icon: CreditCard,
     color: 'bg-[#222]',
     // color: 'from-violet-600 to-purple-700',
@@ -126,7 +126,7 @@ const integrationSteps = [
   {
     id: 'project',
     title: 'Project Management',
-    description: 'Automated ticket creation in Jira',
+    description: "Track project progress in your FullFlow dashboard", // updated
     icon: GitPullRequest,
     color: 'bg-[#222]',
     // color: 'from-blue-600 to-indigo-700',

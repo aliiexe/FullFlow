@@ -1033,7 +1033,7 @@ export default function Dashboard() {
                         Project Resources
                       </h3>
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {selectedProject.jiraurl && (
+                        {/* {selectedProject.jiraurl && (
                           <a
                             href={selectedProject.jiraurl}
                             target="_blank"
@@ -1044,7 +1044,7 @@ export default function Dashboard() {
                             Access Jira Project
                             <ExternalLink className="ml-2 h-4 w-4" />
                           </a>
-                        )}
+                        )} */}
 
                         {selectedProject.slackurl && (
                           <a
