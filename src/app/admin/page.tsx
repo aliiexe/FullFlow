@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { BarChart2, DollarSign, Users, Layers, ChevronLeft, ChevronRight, GripVertical, X as XIcon, Plus, CheckCircle, Circle, AlertCircle, Loader2 } from "lucide-react";
+import { BarChart2, DollarSign, Users, Layers, ChevronLeft, ChevronRight, GripVertical, X as XIcon, Plus, CheckCircle, Circle, AlertCircle, Loader2, ChevronUp, ChevronDown } from "lucide-react";
 import { Listbox } from '@headlessui/react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Fragment } from 'react';
@@ -61,6 +61,7 @@ export default function AdminDashboard() {
   const [insights, setInsights] = useState<any>(null);
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
+  const [clientEmailFilter, setClientEmailFilter] = useState('');
 
   // WebSocket connection effect (must be before any early returns)
   useEffect(() => {
@@ -87,7 +88,11 @@ export default function AdminDashboard() {
       if (!res.ok) throw new Error("Failed to fetch project details");
       const data = await res.json();
       setProjectDetail(data.project);
-      setEditStatus(data.project.status || "not_started");
+      if (data.project.status === 'in_progress' && typeof data.project.current_step === 'number') {
+        setEditStatus(`step_${data.project.current_step}`);
+      } else {
+        setEditStatus(data.project.status || "not_started");
+      }
       setEditDescription(data.project.description || "");
       setEditSteps(Array.isArray(data.project.steps) ? data.project.steps : []);
       setEditCurrentStep(typeof data.project.current_step === "number" ? data.project.current_step : 0);
@@ -332,6 +337,16 @@ export default function AdminDashboard() {
     { value: 'completed', label: 'Completed' },
   ];
 
+  // Helper to get client email from user_id if not present
+  const getClientEmail = (project: Project) => {
+    if (project.client_email) return project.client_email;
+    if (project.user_id && users.length > 0) {
+      const user = users.find(u => u.id === project.user_id);
+      if (user) return user.email;
+    }
+    return 'Unknown';
+  };
+
   // Filter projects by status and search
   const filteredProjects = projects.filter(project => {
     // Status filter
@@ -355,21 +370,17 @@ export default function AdminDashboard() {
       const key = project.projectkey?.toLowerCase() || '';
       matchesSearch = key.startsWith('prj') && key.slice(3).startsWith(searchKey.trim().toLowerCase());
     }
-    return matchesStatus && matchesSearch;
+    // Client email filter
+    let matchesEmail = true;
+    if (clientEmailFilter.trim() !== '') {
+      const email = getClientEmail(project).toLowerCase();
+      matchesEmail = email.includes(clientEmailFilter.trim().toLowerCase());
+    }
+    return matchesStatus && matchesSearch && matchesEmail;
   });
 
   // Add a variable for sidebar width (for padding)
   const sidebarWidth = sidebarOpen ? 'pl-0 sm:pl-5 pr-0 sm:pr-5' : 'pl-0 sm:pl-5 pr-0 sm:pr-5';
-
-  // Helper to get client email from user_id if not present
-  const getClientEmail = (project: Project) => {
-    if (project.client_email) return project.client_email;
-    if (project.user_id && users.length > 0) {
-      const user = users.find(u => u.id === project.user_id);
-      if (user) return user.email;
-    }
-    return 'Unknown';
-  };
 
   // Show loading spinner until role is loaded
   if (typeof role === 'undefined') {
@@ -446,7 +457,7 @@ export default function AdminDashboard() {
       <div className={`flex-1 transition-all duration-300 ${sidebarWidth}`}>
         <header className="border-b border-white/10 backdrop-blur-md bg-black/20 flex items-center justify-between">
           <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center w-full">
-            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
+            {/* <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1> */}
             {/* Back to Home link */}
             <Link
               href="/"
@@ -466,12 +477,12 @@ export default function AdminDashboard() {
                   <label className="text-sm text-gray-400 font-medium" htmlFor="status-filter">Status</label>
                   <div className="w-full sm:w-56">
                     <Listbox value={filterStatus} onChange={setFilterStatus} as={Fragment}>
-                      <div className="relative">
+                      <div className="relative"> 
                         <Listbox.Button id="status-filter" className="w-full rounded bg-white/[0.04] text-white px-3 py-1.5 border border-white/10 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-base h-10">
                           {filterStatusOptions.find(o => o.value === filterStatus)?.label}
                           <ChevronsUpDown className="w-4 h-4 text-gray-400 ml-2" />
                         </Listbox.Button>
-                        <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10">
+                        <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10 max-h-60 overflow-y-auto custom-scrollbar">
                           {filterStatusOptions.map(option => (
                             <Listbox.Option
                               key={option.value}
@@ -511,6 +522,27 @@ export default function AdminDashboard() {
                       }}
                     />
                   </div>
+                </div>
+                <div className="flex-1 flex flex-col gap-2">
+                  <label className="text-sm text-gray-400 font-medium" htmlFor="client-email-filter">Client Email</label>
+                  <input
+                    id="client-email-filter"
+                    type="text"
+                    className="w-full bg-white/[0.04] text-white px-3 py-1.5 rounded-lg border border-white/10 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all placeholder-gray-400 text-base h-10"
+                    placeholder="Type client email here"
+                    value={clientEmailFilter}
+                    onChange={e => setClientEmailFilter(e.target.value)}
+                  />
+                </div>
+                {/* Clear button */}
+                <div className="flex items-end pb-1">
+                  <button
+                    type="button"
+                    onClick={() => { setSearchKey(''); setFilterStatus('all'); setClientEmailFilter(''); }}
+                    className="ml-2 px-4 py-2 bg-gray-700 text-white rounded-lg border border-white/10 hover:bg-indigo-600 transition-colors text-sm font-medium"
+                  >
+                    Clear
+                  </button>
                 </div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 px-0 sm:px-2 md:px-0">
@@ -725,10 +757,10 @@ export default function AdminDashboard() {
                       <Listbox value={editStatus} onChange={handleStatusChange}>
                         <div className="relative">
                           <Listbox.Button className="w-full rounded bg-white/[0.04] text-white px-3 py-2 border border-white/10 flex justify-between items-center focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all">
-                            {statusOptions.find(o => o.value === editStatus)?.label}
+                            {statusOptions.find(o => o.value === editStatus)?.label || 'Select status'}
                             <ChevronsUpDown className="w-4 h-4 text-gray-400 ml-2" />
                           </Listbox.Button>
-                          <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10">
+                          <Listbox.Options className="absolute mt-1 w-full bg-[#181824] border border-white/10 rounded shadow-lg z-10 max-h-60 overflow-y-auto custom-scrollbar">
                             {statusOptions.map(option => (
                               <Listbox.Option
                                 key={option.value}
@@ -763,10 +795,14 @@ export default function AdminDashboard() {
                     {/* Step Editor */}
                     <div className="mb-4">
                       <label className="block text-sm font-medium text-gray-400 mb-1">Steps</label>
-                      <div className="space-y-2">
+                      <div className="space-y-2 max-h-72 overflow-y-auto pr-2 rounded-lg custom-scrollbar">
                         {editSteps.map((step, idx) => (
                           <div key={idx} className={`flex items-center gap-2 p-2 rounded-lg ${editCurrentStep === idx ? "bg-indigo-900/30 border border-indigo-500" : "bg-white/[0.02] border border-white/10"}`}>
-                            <button type="button" onClick={() => handleMoveStep(idx, idx - 1)} disabled={idx === 0} className="text-gray-400 hover:text-white focus:outline-none"><GripVertical className="w-4 h-4" /></button>
+                            {/* Up/Down buttons */}
+                            <div className="flex flex-col gap-1">
+                              <button type="button" onClick={() => handleMoveStep(idx, idx - 1)} disabled={idx === 0} className={`text-gray-400 hover:text-white focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded transition-colors ${idx === 0 ? '' : 'hover:bg-white/10'}`}> <ChevronUp className="w-4 h-4" /> </button>
+                              <button type="button" onClick={() => handleMoveStep(idx, idx + 1)} disabled={idx === editSteps.length - 1} className={`text-gray-400 hover:text-white focus:outline-none disabled:opacity-30 disabled:cursor-not-allowed p-1 rounded transition-colors ${idx === editSteps.length - 1 ? '' : 'hover:bg-white/10'}`}> <ChevronDown className="w-4 h-4" /> </button>
+                            </div>
                             <input
                               className="flex-1 bg-transparent border-none outline-none text-white px-2 py-1 rounded"
                               value={step.name}
@@ -775,7 +811,6 @@ export default function AdminDashboard() {
                             <button type="button" onClick={() => handleStepCompletedToggle(idx)} className="text-green-400 hover:text-green-300 focus:outline-none">
                               {step.completed ? <CheckCircle className="w-5 h-5" /> : <Circle className="w-5 h-5" />}
                             </button>
-                            <button type="button" onClick={() => handleSetCurrentStep(idx)} className={`text-indigo-400 hover:text-indigo-300 focus:outline-none ${editCurrentStep === idx ? "font-bold" : ""}`}>Step</button>
                             <button type="button" onClick={() => handleRemoveStep(idx)} className="text-red-400 hover:text-red-300 focus:outline-none"><XIcon className="w-5 h-5" /></button>
                           </div>
                         ))}
@@ -790,7 +825,9 @@ export default function AdminDashboard() {
                           <button type="button" onClick={handleAddStep} className="px-2 py-1 bg-indigo-600/80 text-white rounded-lg hover:bg-indigo-700 transition-colors flex items-center gap-1"><Plus className="w-4 h-4" /> Add</button>
                         </div>
                       </div>
-                      <div className="text-xs text-gray-400 mt-2">Click <span className="text-indigo-400 font-semibold">Step</span> to set the current step. Use <span className="text-green-400 font-semibold">✓</span> to mark as completed.</div>
+                      <div className="text-xs text-gray-400 mt-2">
+                        Click <span className="text-red-400 font-semibold">X</span> to remove a step. Use the arrows to reorder steps. Use <span className="text-green-400 font-semibold">✓</span> to mark as completed.
+                      </div>
                     </div>
                     <div className="flex justify-end mt-6 gap-2">
                       <button
