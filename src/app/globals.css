@@ -118,13 +118,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+
   body {
     @apply bg-background text-foreground;
   }
 
 }
 
-main{
+main {
   padding: 0;
 }
 
@@ -222,6 +223,7 @@ body {
   from {
     transform: translateX(-100%);
   }
+
   to {
     transform: translateX(100%);
   }
@@ -229,4 +231,50 @@ body {
 
 .animate-shine {
   animation: shine 3s infinite;
+}
+
+/* Global dark scrollbar style for the entire app */
+html,
+body {
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 #181824;
+}
+
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  width: 8px;
+  border-radius: 8px;
+}
+
+html::-webkit-scrollbar-thumb,
+body::-webkit-scrollbar-thumb {
+  background: #6366f1;
+  border-radius: 8px;
+}
+
+html::-webkit-scrollbar-track,
+body::-webkit-scrollbar-track {
+  background: #181824;
+  border-radius: 8px;
+}
+
+/* Keep .custom-scrollbar for targeted overrides if needed */
+.custom-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #6366f1 #181824;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #6366f1;
+  border-radius: 8px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: #181824;
+  border-radius: 8px;
 }
