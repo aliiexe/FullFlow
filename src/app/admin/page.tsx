@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState, useCallback, useRef } from "react";
-import { BarChart2, DollarSign, Users, Layers, ChevronLeft, ChevronRight, GripVertical, X as XIcon, Plus, CheckCircle, Circle, AlertCircle, Loader2, ChevronUp, ChevronDown } from "lucide-react";
+import { BarChart2, DollarSign, Users, Layers, ChevronLeft, ChevronRight, GripVertical, X as XIcon, Plus, CheckCircle, Circle, AlertCircle, Loader2, ChevronUp, ChevronDown, FileCode } from "lucide-react";
 import { Listbox } from '@headlessui/react';
 import { Check, ChevronsUpDown } from 'lucide-react';
 import { Fragment } from 'react';
@@ -9,8 +9,6 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useMemo } from 'react';
-import { io } from 'socket.io-client';
-import { UserButton } from '@clerk/nextjs';
 
 interface Project {
   id: string;
@@ -30,6 +28,7 @@ const ADMIN_TABS = [
   { key: "projects", label: "Projects", icon: Layers },
   { key: "insights", label: "Insights", icon: BarChart2 },
   { key: "subscriptions", label: "Subscriptions", icon: Users },
+  { key: "deliverables", label: "Deliverables", icon: FileCode },
 ];
 
 export default function AdminDashboard() {
@@ -62,19 +61,12 @@ export default function AdminDashboard() {
   const [insightsLoading, setInsightsLoading] = useState(false);
   const [insightsError, setInsightsError] = useState<string | null>(null);
   const [clientEmailFilter, setClientEmailFilter] = useState('');
-
-  // WebSocket connection effect (must be before any early returns)
-  useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
-    socket.on('connect', () => {
-      console.log('WebSocket connected!');
-    });
-    // Optionally, listen for events here
-    // socket.on('project_updated', (data) => { ... });
-    return () => {
-      socket.disconnect();
-    };
-  }, []);
+  const [subscriptions, setSubscriptions] = useState<any[]>([]);
+  const [subscriptionsLoading, setSubscriptionsLoading] = useState(false);
+  const [subscriptionsError, setSubscriptionsError] = useState<string | null>(null);
+  const [deliverables, setDeliverables] = useState<any[]>([]);
+  const [deliverablesLoading, setDeliverablesLoading] = useState(false);
+  const [deliverablesError, setDeliverablesError] = useState<string | null>(null);
 
   // All useCallback hooks at the top
   const handleViewEdit = useCallback(async (projectId: string) => {
@@ -247,6 +239,18 @@ export default function AdminDashboard() {
     localStorage.setItem('adminSidebarOpen', sidebarOpen ? 'true' : 'false');
   }, [sidebarOpen]);
 
+  // On mount, restore activeTab from localStorage if present
+  useEffect(() => {
+    const storedTab = localStorage.getItem('adminActiveTab');
+    if (storedTab && ADMIN_TABS.some(tab => tab.key === storedTab)) {
+      setActiveTab(storedTab);
+    }
+  }, []);
+  // On tab change, persist activeTab to localStorage
+  useEffect(() => {
+    localStorage.setItem('adminActiveTab', activeTab);
+  }, [activeTab]);
+
   // Fetch insights when Insights tab is active
   useEffect(() => {
     if (activeTab === 'insights') {
@@ -260,6 +264,37 @@ export default function AdminDashboard() {
         .then(data => setInsights(data))
         .catch(err => setInsightsError(err.message))
         .finally(() => setInsightsLoading(false));
+    }
+  }, [activeTab]);
+
+  // Update fetch for subscriptions
+  useEffect(() => {
+    if (activeTab === 'subscriptions') {
+      setSubscriptionsLoading(true);
+      setSubscriptionsError(null);
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/subscription-tiers`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch subscription tiers');
+          return res.json();
+        })
+        .then(data => setSubscriptions((data && Array.isArray(data)) ? data : (data.subscriptionPlans || [])))
+        .catch(err => setSubscriptionsError(err.message))
+        .finally(() => setSubscriptionsLoading(false));
+    }
+  }, [activeTab]);
+  // Update fetch for deliverables
+  useEffect(() => {
+    if (activeTab === 'deliverables') {
+      setDeliverablesLoading(true);
+      setDeliverablesError(null);
+      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/deliverables`)
+        .then(res => {
+          if (!res.ok) throw new Error('Failed to fetch deliverables');
+          return res.json();
+        })
+        .then(data => setDeliverables((data && Array.isArray(data)) ? data : (data.deliverables || [])))
+        .catch(err => setDeliverablesError(err.message))
+        .finally(() => setDeliverablesLoading(false));
     }
   }, [activeTab]);
 
@@ -379,6 +414,14 @@ export default function AdminDashboard() {
     return matchesStatus && matchesSearch && matchesEmail;
   });
 
+  // Helper to group deliverables by category
+  const groupedDeliverables = deliverables.reduce((acc: Record<string, any[]>, d: any) => {
+    const cat = d.service_category?.name || 'Uncategorized';
+    if (!acc[cat]) acc[cat] = [];
+    acc[cat].push(d);
+    return acc;
+  }, {});
+
   // Add a variable for sidebar width (for padding)
   const sidebarWidth = sidebarOpen ? 'pl-0 sm:pl-5 pr-0 sm:pr-5' : 'pl-0 sm:pl-5 pr-0 sm:pr-5';
 
@@ -447,7 +490,7 @@ export default function AdminDashboard() {
         </nav>
         {/* Clerk User Profile at the bottom */}
         <div className="mt-auto px-4 py-6 border-t border-white/10 flex flex-col items-center">
-          <UserButton afterSignOutUrl="/" />
+          {/* <UserButton afterSignOutUrl="/" /> */}
           {sidebarOpen && (
             <span className="mt-2 text-xs text-gray-400 text-center">Profile & Logout</span>
           )}
@@ -456,8 +499,8 @@ export default function AdminDashboard() {
       {/* Main Content */}
       <div className={`flex-1 transition-all duration-300 ${sidebarWidth}`}>
         <header className="border-b border-white/10 backdrop-blur-md bg-black/20 flex items-center justify-between">
-          <div className="max-w-7xl mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center w-full">
-            {/* <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1> */}
+          <div className="max-w-[1350px] mx-auto py-6 px-4 sm:px-6 lg:px-8 flex justify-between items-center w-full">
+            <h1 className="text-3xl font-bold text-white">Admin Dashboard</h1>
             {/* Back to Home link */}
             <Link
               href="/"
@@ -719,10 +762,77 @@ export default function AdminDashboard() {
             </div>
           )}
           {activeTab === "subscriptions" && (
-            <div className="mb-8">
+            <div className="mb-8 p-4">  
               <h2 className="text-xl font-semibold text-white mb-4">Subscriptions</h2>
-              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-lg flex items-center justify-center min-h-[200px]">
-                <span className="text-gray-400">Subscriptions coming soon...</span>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-lg flex flex-col gap-8 min-h-[200px]">
+                {subscriptionsLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-gray-400">Loading subscriptions...</span>
+                  </div>
+                ) : subscriptionsError ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-red-400">{subscriptionsError}</span>
+                  </div>
+                ) : (
+                  <table className="w-full text-left">
+                    <thead>
+                      <tr className="text-gray-400 border-b border-white/10">
+                        <th className="px-4 py-2">Plan Name</th>
+                        <th className="px-4 py-2">Description</th>
+                        <th className="px-4 py-2">Price</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {subscriptions.map((plan, idx) => (
+                        <tr key={plan.id || idx} className="border-b border-white/5 hover:bg-white/[0.02]">
+                          <td className="px-4 py-2 text-white font-semibold">{plan.name}</td>
+                          <td className="px-4 py-2 text-white">{plan.description}</td>
+                          <td className="px-4 py-2 text-indigo-300 font-mono font-bold">${plan.price?.toLocaleString() ?? 'N/A'}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
+          )}
+          {activeTab === "deliverables" && (
+            <div className="mb-8 p-4">
+              <h2 className="text-xl font-semibold text-white mb-4">Deliverables</h2>
+              <div className="rounded-xl border border-white/10 bg-white/[0.03] p-8 shadow-lg flex flex-col gap-8 min-h-[200px]">
+                {deliverablesLoading ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-gray-400">Loading deliverables...</span>
+                  </div>
+                ) : deliverablesError ? (
+                  <div className="flex items-center justify-center h-32">
+                    <span className="text-red-400">{deliverablesError}</span>
+                  </div>
+                ) : (
+                  Object.entries(groupedDeliverables).map(([cat, list]) => (
+                    <div key={cat} className="mb-8">
+                      <h3 className="text-lg font-bold text-indigo-300 mb-2">{cat}</h3>
+                      <table className="w-full text-left mb-4">
+                        <thead>
+                          <tr className="text-gray-400 border-b border-white/10">
+                            <th className="px-4 py-2">Deliverable</th>
+                            <th className="px-4 py-2">Description</th>
+                            <th className="px-4 py-2">Price</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {list.map((del, idx) => (
+                            <tr key={del.id || idx} className="border-b border-white/5 hover:bg-white/[0.02]">
+                              <td className="px-4 py-2 text-white font-semibold">{del.name}</td>
+                              <td className="px-4 py-2 text-white">{del.description || '—'}</td>
+                              <td className="px-4 py-2 text-indigo-300 font-mono font-bold">${del.price?.toLocaleString() ?? 'N/A'}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
