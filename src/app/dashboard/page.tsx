@@ -18,11 +18,9 @@ import { motion } from "framer-motion";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import PayPalCancellationButton from "../../components/PayPalCancellationButton";
-import { io } from 'socket.io-client';
 
 // Update the Project interface to include project-specific fields
 interface Project {
-  id: string; // <-- Add this line
   projectkey: string;
   jiraurl: string;
   slackurl: string;
@@ -229,25 +227,18 @@ export default function Dashboard() {
     }
   }, [fetchUserData, fetchSubscriptions, isLoaded, isSignedIn, userId]);
 
-  // Real-time updates: listen for project_updated events
+  // On mount, restore activeTab from localStorage if present
   useEffect(() => {
-    const socket = io(process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000');
-    socket.on('project_updated', (updatedProject) => {
-      console.log('Received project_updated event:', updatedProject);
-      setUserData(prev => {
-        if (!prev) return prev;
-        return {
-          ...prev,
-          projects: prev.projects.map(p =>
-            p.projectkey === updatedProject.projectkey ? updatedProject : p
-          ),
-        };
-      });
-    });
-    return () => {
-      socket.disconnect();
-    };
+    const storedTab = localStorage.getItem('clientDashboardActiveTab');
+    if (storedTab && ['subscription', 'project', 'billing'].includes(storedTab)) {
+      setActiveTab(storedTab as "subscription" | "project" | "billing");
+    }
   }, []);
+
+  // On tab change, persist activeTab to localStorage
+  useEffect(() => {
+    localStorage.setItem('clientDashboardActiveTab', activeTab);
+  }, [activeTab]);
 
   if (userData && userData.role && userData.role !== 'client') {
     return (
@@ -1321,6 +1312,132 @@ export default function Dashboard() {
             </motion.div>
           )}
       </main>
+
+      {/* Cancellation Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-[#181824] border border-white/10 rounded-xl p-8 shadow-lg flex flex-col gap-8 min-h-[200px] max-w-md w-full">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-white">Cancel Subscription</h3>
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setSubscriptionToCancel(null);
+                  setCancelResult(null);
+                  setShowPaymentStep(false);
+                  setShowConfirmCancellation(false);
+                }}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {!cancelResult && (
+              <div className="text-center">
+                <p className="text-gray-300 mb-4">
+                  Are you sure you want to cancel your subscription?
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={handleCheckCancellation}
+                    disabled={cancelingSubscription}
+                    className="flex-1 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                  >
+                    {cancelingSubscription ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Checking...
+                      </>
+                    ) : (
+                      "Check Cancellation"
+                    )}
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowCancelModal(false);
+                      setSubscriptionToCancel(null);
+                    }}
+                    className="flex-1 px-4 py-2 border border-white/20 text-white rounded-lg hover:bg-white/[0.03] transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {cancelResult && (
+              <div className="space-y-4">
+                <div className={`p-3 rounded-lg ${
+                  cancelResult.success 
+                    ? 'bg-green-500/20 text-green-400' 
+                    : 'bg-red-500/20 text-red-400'
+                }`}>
+                  <p className="text-sm">{cancelResult.cancelMessage}</p>
+                </div>
+
+                {cancelResult.payToCancelAmount && cancelResult.payToCancelAmount > 0 && showPaymentStep && subscriptionToCancel && userData && (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-amber-500/20 rounded-lg">
+                      <p className="text-amber-400 text-sm mb-2">
+                        Cancellation fee: ${cancelResult.payToCancelAmount}
+                      </p>
+                      <p className="text-amber-300 text-xs">
+                        You need to pay {cancelResult.monthsToPay} month(s) to cancel early.
+                      </p>
+                    </div>
+                    <PayPalCancellationButton
+                      totalPrice={cancelResult.payToCancelAmount}
+                      subscriptionId={subscriptionToCancel.subscription_id}
+                      monthsToPay={cancelResult.monthsToPay || 0}
+                      clerkId={userData.clerk_id}
+                      onPaymentSuccess={handlePaymentSuccess}
+                    />
+                  </div>
+                )}
+
+                {showConfirmCancellation && (
+                  <div className="space-y-4">
+                    <p className="text-gray-300 text-sm">
+                      No cancellation fee required. Click below to confirm cancellation.
+                    </p>
+                    <button
+                      onClick={handleDirectCancellation}
+                      disabled={cancelingSubscription}
+                      className="w-full px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition-colors disabled:opacity-50"
+                    >
+                      {cancelingSubscription ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Canceling...
+                        </>
+                      ) : (
+                        "Confirm Cancellation"
+                      )}
+                    </button>
+                  </div>
+                )}
+
+                {cancelResult.success && !showPaymentStep && !showConfirmCancellation && (
+                  <div className="text-center">
+                    <p className="text-green-400 mb-4">Subscription cancelled successfully!</p>
+                    <button
+                      onClick={() => {
+                        setShowCancelModal(false);
+                        setSubscriptionToCancel(null);
+                        setCancelResult(null);
+                      }}
+                      className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                    >
+                      Close
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
