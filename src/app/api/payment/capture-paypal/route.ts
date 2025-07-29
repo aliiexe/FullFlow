@@ -53,6 +53,7 @@ async function createSlackChannel(customerData: {
     const channelName = `prj-${sessionSuffix}`;
 
     console.log('Creating Slack channel:', channelName);
+    console.log('Slack API URL:', `${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`);
 
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/createSlackChannel`, {
       method: 'POST',
@@ -62,9 +63,13 @@ async function createSlackChannel(customerData: {
       }),
     });
 
+    console.log('Slack API response status:', response.status);
+    console.log('Slack API response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorData = await response.text();
       console.error('Error creating Slack channel:', errorData);
+      console.error('Slack API failed with status:', response.status);
       return null;
     } else {
       const data = await response.json();
@@ -74,6 +79,7 @@ async function createSlackChannel(customerData: {
     }
   } catch (error) {
     console.error('Failed to create Slack channel:', error);
+    console.error('Slack API request failed completely');
     return null;
   }
 }
@@ -123,7 +129,17 @@ async function sendEmailNotification(customerData: {
   subscriptionName?: string;
 }) {
   try {
-    console.log('Sending email notification to customer:', customerData.customerEmail);
+    console.log('[EMAIL] Starting email notification process...');
+    console.log('[EMAIL] Customer data:', {
+      email: customerData.customerEmail,
+      name: customerData.customerName,
+      projectKey: customerData.projectKey,
+      channelName: customerData.channelName,
+      amount: customerData.amount,
+      isSubscription: customerData.isSubscription,
+      subscriptionName: customerData.subscriptionName,
+      selectedServices: customerData.selectedServices
+    });
 
     const emailData = {
       clientmail: customerData.customerEmail,
@@ -131,24 +147,97 @@ async function sendEmailNotification(customerData: {
       projectKey: customerData.projectKey
     };
 
+    console.log('[EMAIL] Email data to send:', emailData);
+    console.log('[EMAIL] Calling welcome email endpoint:', `${process.env.NEXT_PUBLIC_API_URL}/api/welcomeEmail`);
+
     const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/welcomeEmail`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(emailData),
     });
 
+    console.log('[EMAIL] Welcome email response status:', response.status);
+    console.log('[EMAIL] Welcome email response headers:', Object.fromEntries(response.headers.entries()));
+
     if (!response.ok) {
       const errorData = await response.text();
-      console.error('Error sending email notification:', errorData);
+      console.error('[EMAIL] Error sending welcome email:', errorData);
+      console.error('[EMAIL] Welcome email failed with status:', response.status);
       return null;
     } else {
       const responseData = await response.json();
-      console.log('Email notification sent successfully:', responseData);
+      console.log('[EMAIL] Welcome email sent successfully:', responseData);
       return responseData;
     }
   } catch (error) {
-    console.error('Failed to send email notification:', error);
+    console.error('[EMAIL] Failed to send welcome email:', error);
+    console.error('[EMAIL] Welcome email request failed completely');
     return null;
+  }
+}
+
+async function sendAdminNotification(adminData: {
+  user_id: string;
+  purchase_type: 'subscription' | 'deliverable';
+  purchase_data: {
+    payment: any;
+    tier?: any;
+    selections?: any;
+    payments?: any;
+  };
+}) {
+  try {
+    console.log('[ADMIN] Starting admin notification process...');
+    console.log('[ADMIN] Admin notification data:', {
+      user_id: adminData.user_id,
+      purchase_type: adminData.purchase_type,
+      purchase_data: adminData.purchase_data
+    });
+
+    console.log('[ADMIN] Calling admin notification endpoint:', `${process.env.NEXT_PUBLIC_API_URL}/api/admin/notify-purchase`);
+
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/notify-purchase`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(adminData),
+    });
+
+    console.log('[ADMIN] Admin notification response status:', response.status);
+    console.log('[ADMIN] Admin notification response headers:', Object.fromEntries(response.headers.entries()));
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      console.error('[ADMIN] Error sending admin notification:', errorData);
+      console.error('[ADMIN] Admin notification failed with status:', response.status);
+      return null;
+    } else {
+      const responseData = await response.json();
+      console.log('[ADMIN] Admin notification sent successfully:', responseData);
+      return responseData;
+    }
+  } catch (error) {
+    console.error('[ADMIN] Failed to send admin notification:', error);
+    console.error('[ADMIN] Admin notification request failed completely');
+    return null;
+  }
+}
+
+async function getAdminUsers() {
+  try {
+    console.log('[ADMIN] Fetching admin users...');
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/admin/users`);
+
+    if (response.ok) {
+      const adminData = await response.json();
+      console.log('[ADMIN] Admin users found:', adminData);
+      return adminData.admin_users || [];
+    } else {
+      console.error('[ADMIN] Failed to fetch admin users:', response.status);
+      return [];
+    }
+  } catch (error) {
+    console.error('[ADMIN] Error fetching admin users:', error);
+    return [];
   }
 }
 
@@ -365,6 +454,13 @@ export async function POST(request: NextRequest) {
       sessionId: orderID
     });
 
+    // Log Slack creation result
+    if (slackResult) {
+      console.log("[DEBUG] Slack channel created successfully:", slackResult.channelName);
+    } else {
+      console.log("[DEBUG] Slack channel creation failed - continuing with other processes");
+    }
+
     // Get the best available clerk ID
     const finalClerkId = paymentDetails.clerkId ||
       clerkId ||
@@ -374,28 +470,106 @@ export async function POST(request: NextRequest) {
 
     console.log("[DEBUG] Final clerk ID being used:", finalClerkId);
 
-    // Send project information
-    if (jiraResult && slackResult) {
+    // Send project information (proceed even if Slack fails)
+    if (jiraResult) {
       await sendProjectInfo({
         clerk_id: finalClerkId,
         projectkey: jiraResult.projectKey,
         jiraurl: `https://pfa.atlassian.net/jira/software/projects/${jiraResult.projectKey}/boards`,
-        slackurl: `https://slack.com/app_redirect?channel=${slackResult.channelName}`
+        slackurl: slackResult ? `https://slack.com/app_redirect?channel=${slackResult.channelName}` : 'Slack channel creation failed - please contact support'
       });
     }
 
-    // STEP 4: Send email notification to client
-    if (jiraResult && slackResult) {
+    // STEP 4: Send email notification to client (proceed even if Slack fails)
+    if (jiraResult) {
+      console.log("[DEBUG] Sending welcome email to customer...");
       await sendEmailNotification({
         customerEmail: paymentDetails.customerEmail,
         customerName: paymentDetails.customerName,
         projectKey: jiraResult.projectKey,
-        channelName: slackResult.channelName,
+        channelName: slackResult?.channelName || 'Slack channel creation failed',
         amount: paymentDetails.amount || "0",
         selectedServices: paymentDetails.selectedServices,
         isSubscription: paymentDetails.isSubscription,
         subscriptionName: subscriptionName
       });
+    }
+
+    // STEP 5: Send admin notification about the purchase
+    console.log("[DEBUG] Sending admin notification...");
+    try {
+      // First, get the user by clerk_id to get the database user_id
+      console.log("[DEBUG] Looking up user by clerk_id:", finalClerkId);
+      const userLookupResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users?clerk_id=${finalClerkId}`);
+
+      if (userLookupResponse.ok) {
+        const userData = await userLookupResponse.json();
+        console.log("[DEBUG] User lookup successful:", userData);
+
+        if (userData.data && userData.data.user_id) {
+          // Get admin users and log them
+          const adminUsers = await getAdminUsers();
+          console.log("[ADMIN] Admin users that will receive notification:", adminUsers.map((admin: any) => ({
+            id: admin.id,
+            email: admin.email,
+            fullname: admin.fullname
+          })));
+
+          if (adminUsers.length === 0) {
+            console.error("[ADMIN] No admin users found - admin notification will not be sent");
+          } else {
+            console.log("[ADMIN] Found", adminUsers.length, "admin users to notify");
+          }
+
+          // Prepare admin notification data with correct user_id
+          const adminNotificationData = {
+            user_id: userData.data.user_id, // Use the database user_id
+            purchase_type: (paymentDetails.isSubscription ? 'subscription' : 'deliverable') as 'subscription' | 'deliverable',
+            purchase_data: {
+              payment: {
+                orderId: paymentDetails.orderId,
+                captureId: paymentDetails.captureId,
+                amount: paymentDetails.amount,
+                currency: paymentDetails.currency,
+                status: paymentDetails.status,
+                customerEmail: paymentDetails.customerEmail,
+                customerName: paymentDetails.customerName,
+                payment_method: 'PayPal',
+                transaction_id: paymentDetails.captureId,
+                payment_date: new Date().toISOString()
+              },
+              tier: paymentDetails.isSubscription ? {
+                id: paymentDetails.subscriptionId,
+                name: subscriptionName
+              } : undefined,
+              selections: !paymentDetails.isSubscription ? paymentDetails.selectedServices : undefined,
+              payments: !paymentDetails.isSubscription ? [{
+                orderId: paymentDetails.orderId,
+                captureId: paymentDetails.captureId,
+                amount: paymentDetails.amount,
+                currency: paymentDetails.currency,
+                payment_method: 'PayPal',
+                transaction_id: paymentDetails.captureId,
+                payment_date: new Date().toISOString(),
+                status: paymentDetails.status
+              }] : undefined
+            }
+          };
+
+          console.log("[DEBUG] Admin notification data prepared:", adminNotificationData);
+          await sendAdminNotification(adminNotificationData);
+        } else {
+          console.error("[DEBUG] User ID not found in user data for clerk_id:", finalClerkId);
+          console.error("[DEBUG] User data structure:", userData);
+        }
+      } else {
+        console.error("[DEBUG] Failed to lookup user by clerk_id:", finalClerkId);
+        const errorText = await userLookupResponse.text();
+        console.error("[DEBUG] User lookup error:", errorText);
+      }
+    } catch (adminError) {
+      console.error("[DEBUG] Error sending admin notification:", adminError);
+      // Don't fail the entire process if admin notification fails
     }
 
     console.log("[DEBUG] Project creation and email notification completed");
