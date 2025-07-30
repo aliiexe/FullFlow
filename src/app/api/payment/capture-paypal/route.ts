@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 
-// Project creation functions
 async function createJiraProject(customerData: {
   customerEmail: string;
   customerName: string;
